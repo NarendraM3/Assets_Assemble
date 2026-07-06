@@ -9,38 +9,245 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppWarrantyRouteImport } from './routes/_app.warranty'
+import { Route as AppVendorsRouteImport } from './routes/_app.vendors'
+import { Route as AppTicketHistoryRouteImport } from './routes/_app.ticket-history'
+import { Route as AppRaiseTicketRouteImport } from './routes/_app.raise-ticket'
+import { Route as AppMyTicketsRouteImport } from './routes/_app.my-tickets'
+import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
+import { Route as AppMaintenanceHistoryRouteImport } from './routes/_app.maintenance-history'
+import { Route as AppMaintenanceRouteImport } from './routes/_app.maintenance'
+import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppAssignmentsRouteImport } from './routes/_app.assignments'
+import { Route as AppAssignedTicketsRouteImport } from './routes/_app.assigned-tickets'
+import { Route as AppAssetsRouteImport } from './routes/_app.assets'
+import { Route as AppAllTicketsRouteImport } from './routes/_app.all-tickets'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppWarrantyRoute = AppWarrantyRouteImport.update({
+  id: '/warranty',
+  path: '/warranty',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVendorsRoute = AppVendorsRouteImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTicketHistoryRoute = AppTicketHistoryRouteImport.update({
+  id: '/ticket-history',
+  path: '/ticket-history',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRaiseTicketRoute = AppRaiseTicketRouteImport.update({
+  id: '/raise-ticket',
+  path: '/raise-ticket',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMyTicketsRoute = AppMyTicketsRouteImport.update({
+  id: '/my-tickets',
+  path: '/my-tickets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMyAssetsRoute = AppMyAssetsRouteImport.update({
+  id: '/my-assets',
+  path: '/my-assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMaintenanceHistoryRoute = AppMaintenanceHistoryRouteImport.update({
+  id: '/maintenance-history',
+  path: '/maintenance-history',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMaintenanceRoute = AppMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeesRoute = AppEmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssignmentsRoute = AppAssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssignedTicketsRoute = AppAssignedTicketsRouteImport.update({
+  id: '/assigned-tickets',
+  path: '/assigned-tickets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssetsRoute = AppAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAllTicketsRoute = AppAllTicketsRouteImport.update({
+  id: '/all-tickets',
+  path: '/all-tickets',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/all-tickets': typeof AppAllTicketsRoute
+  '/assets': typeof AppAssetsRoute
+  '/assigned-tickets': typeof AppAssignedTicketsRoute
+  '/assignments': typeof AppAssignmentsRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/employees': typeof AppEmployeesRoute
+  '/maintenance': typeof AppMaintenanceRoute
+  '/maintenance-history': typeof AppMaintenanceHistoryRoute
+  '/my-assets': typeof AppMyAssetsRoute
+  '/my-tickets': typeof AppMyTicketsRoute
+  '/raise-ticket': typeof AppRaiseTicketRoute
+  '/ticket-history': typeof AppTicketHistoryRoute
+  '/vendors': typeof AppVendorsRoute
+  '/warranty': typeof AppWarrantyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/all-tickets': typeof AppAllTicketsRoute
+  '/assets': typeof AppAssetsRoute
+  '/assigned-tickets': typeof AppAssignedTicketsRoute
+  '/assignments': typeof AppAssignmentsRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/employees': typeof AppEmployeesRoute
+  '/maintenance': typeof AppMaintenanceRoute
+  '/maintenance-history': typeof AppMaintenanceHistoryRoute
+  '/my-assets': typeof AppMyAssetsRoute
+  '/my-tickets': typeof AppMyTicketsRoute
+  '/raise-ticket': typeof AppRaiseTicketRoute
+  '/ticket-history': typeof AppTicketHistoryRoute
+  '/vendors': typeof AppVendorsRoute
+  '/warranty': typeof AppWarrantyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_app/all-tickets': typeof AppAllTicketsRoute
+  '/_app/assets': typeof AppAssetsRoute
+  '/_app/assigned-tickets': typeof AppAssignedTicketsRoute
+  '/_app/assignments': typeof AppAssignmentsRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/employees': typeof AppEmployeesRoute
+  '/_app/maintenance': typeof AppMaintenanceRoute
+  '/_app/maintenance-history': typeof AppMaintenanceHistoryRoute
+  '/_app/my-assets': typeof AppMyAssetsRoute
+  '/_app/my-tickets': typeof AppMyTicketsRoute
+  '/_app/raise-ticket': typeof AppRaiseTicketRoute
+  '/_app/ticket-history': typeof AppTicketHistoryRoute
+  '/_app/vendors': typeof AppVendorsRoute
+  '/_app/warranty': typeof AppWarrantyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/all-tickets'
+    | '/assets'
+    | '/assigned-tickets'
+    | '/assignments'
+    | '/dashboard'
+    | '/employees'
+    | '/maintenance'
+    | '/maintenance-history'
+    | '/my-assets'
+    | '/my-tickets'
+    | '/raise-ticket'
+    | '/ticket-history'
+    | '/vendors'
+    | '/warranty'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/all-tickets'
+    | '/assets'
+    | '/assigned-tickets'
+    | '/assignments'
+    | '/dashboard'
+    | '/employees'
+    | '/maintenance'
+    | '/maintenance-history'
+    | '/my-assets'
+    | '/my-tickets'
+    | '/raise-ticket'
+    | '/ticket-history'
+    | '/vendors'
+    | '/warranty'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/login'
+    | '/_app/all-tickets'
+    | '/_app/assets'
+    | '/_app/assigned-tickets'
+    | '/_app/assignments'
+    | '/_app/dashboard'
+    | '/_app/employees'
+    | '/_app/maintenance'
+    | '/_app/maintenance-history'
+    | '/_app/my-assets'
+    | '/_app/my-tickets'
+    | '/_app/raise-ticket'
+    | '/_app/ticket-history'
+    | '/_app/vendors'
+    | '/_app/warranty'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +255,148 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/warranty': {
+      id: '/_app/warranty'
+      path: '/warranty'
+      fullPath: '/warranty'
+      preLoaderRoute: typeof AppWarrantyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/vendors': {
+      id: '/_app/vendors'
+      path: '/vendors'
+      fullPath: '/vendors'
+      preLoaderRoute: typeof AppVendorsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/ticket-history': {
+      id: '/_app/ticket-history'
+      path: '/ticket-history'
+      fullPath: '/ticket-history'
+      preLoaderRoute: typeof AppTicketHistoryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/raise-ticket': {
+      id: '/_app/raise-ticket'
+      path: '/raise-ticket'
+      fullPath: '/raise-ticket'
+      preLoaderRoute: typeof AppRaiseTicketRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/my-tickets': {
+      id: '/_app/my-tickets'
+      path: '/my-tickets'
+      fullPath: '/my-tickets'
+      preLoaderRoute: typeof AppMyTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/my-assets': {
+      id: '/_app/my-assets'
+      path: '/my-assets'
+      fullPath: '/my-assets'
+      preLoaderRoute: typeof AppMyAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/maintenance-history': {
+      id: '/_app/maintenance-history'
+      path: '/maintenance-history'
+      fullPath: '/maintenance-history'
+      preLoaderRoute: typeof AppMaintenanceHistoryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/maintenance': {
+      id: '/_app/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof AppMaintenanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employees': {
+      id: '/_app/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof AppEmployeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assignments': {
+      id: '/_app/assignments'
+      path: '/assignments'
+      fullPath: '/assignments'
+      preLoaderRoute: typeof AppAssignmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assigned-tickets': {
+      id: '/_app/assigned-tickets'
+      path: '/assigned-tickets'
+      fullPath: '/assigned-tickets'
+      preLoaderRoute: typeof AppAssignedTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assets': {
+      id: '/_app/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AppAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/all-tickets': {
+      id: '/_app/all-tickets'
+      path: '/all-tickets'
+      fullPath: '/all-tickets'
+      preLoaderRoute: typeof AppAllTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppAllTicketsRoute: typeof AppAllTicketsRoute
+  AppAssetsRoute: typeof AppAssetsRoute
+  AppAssignedTicketsRoute: typeof AppAssignedTicketsRoute
+  AppAssignmentsRoute: typeof AppAssignmentsRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppEmployeesRoute: typeof AppEmployeesRoute
+  AppMaintenanceRoute: typeof AppMaintenanceRoute
+  AppMaintenanceHistoryRoute: typeof AppMaintenanceHistoryRoute
+  AppMyAssetsRoute: typeof AppMyAssetsRoute
+  AppMyTicketsRoute: typeof AppMyTicketsRoute
+  AppRaiseTicketRoute: typeof AppRaiseTicketRoute
+  AppTicketHistoryRoute: typeof AppTicketHistoryRoute
+  AppVendorsRoute: typeof AppVendorsRoute
+  AppWarrantyRoute: typeof AppWarrantyRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAllTicketsRoute: AppAllTicketsRoute,
+  AppAssetsRoute: AppAssetsRoute,
+  AppAssignedTicketsRoute: AppAssignedTicketsRoute,
+  AppAssignmentsRoute: AppAssignmentsRoute,
+  AppDashboardRoute: AppDashboardRoute,
+  AppEmployeesRoute: AppEmployeesRoute,
+  AppMaintenanceRoute: AppMaintenanceRoute,
+  AppMaintenanceHistoryRoute: AppMaintenanceHistoryRoute,
+  AppMyAssetsRoute: AppMyAssetsRoute,
+  AppMyTicketsRoute: AppMyTicketsRoute,
+  AppRaiseTicketRoute: AppRaiseTicketRoute,
+  AppTicketHistoryRoute: AppTicketHistoryRoute,
+  AppVendorsRoute: AppVendorsRoute,
+  AppWarrantyRoute: AppWarrantyRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
