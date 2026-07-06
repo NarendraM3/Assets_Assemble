@@ -15,16 +15,27 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppWarrantyRouteImport } from './routes/_app.warranty'
 import { Route as AppVendorsRouteImport } from './routes/_app.vendors'
 import { Route as AppTicketHistoryRouteImport } from './routes/_app.ticket-history'
+import { Route as AppTicketCategoriesRouteImport } from './routes/_app.ticket-categories'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppSearchRouteImport } from './routes/_app.search'
+import { Route as AppRolesRouteImport } from './routes/_app.roles'
+import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppRaiseTicketRouteImport } from './routes/_app.raise-ticket'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppMyTicketsRouteImport } from './routes/_app.my-tickets'
 import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
 import { Route as AppMaintenanceHistoryRouteImport } from './routes/_app.maintenance-history'
 import { Route as AppMaintenanceRouteImport } from './routes/_app.maintenance'
+import { Route as AppKnowledgeBaseRouteImport } from './routes/_app.knowledge-base'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
+import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppAuditLogsRouteImport } from './routes/_app.audit-logs'
 import { Route as AppAssignmentsRouteImport } from './routes/_app.assignments'
 import { Route as AppAssignedTicketsRouteImport } from './routes/_app.assigned-tickets'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
+import { Route as AppAssetCategoriesRouteImport } from './routes/_app.asset-categories'
 import { Route as AppAllTicketsRouteImport } from './routes/_app.all-tickets'
 
 const LoginRoute = LoginRouteImport.update({
@@ -56,9 +67,44 @@ const AppTicketHistoryRoute = AppTicketHistoryRouteImport.update({
   path: '/ticket-history',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTicketCategoriesRoute = AppTicketCategoriesRouteImport.update({
+  id: '/ticket-categories',
+  path: '/ticket-categories',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSearchRoute = AppSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRolesRoute = AppRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRaiseTicketRoute = AppRaiseTicketRouteImport.update({
   id: '/raise-ticket',
   path: '/raise-ticket',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMyTicketsRoute = AppMyTicketsRouteImport.update({
@@ -81,14 +127,29 @@ const AppMaintenanceRoute = AppMaintenanceRouteImport.update({
   path: '/maintenance',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKnowledgeBaseRoute = AppKnowledgeBaseRouteImport.update({
+  id: '/knowledge-base',
+  path: '/knowledge-base',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
+  id: '/departments',
+  path: '/departments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditLogsRoute = AppAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAssignmentsRoute = AppAssignmentsRouteImport.update({
@@ -106,6 +167,11 @@ const AppAssetsRoute = AppAssetsRouteImport.update({
   path: '/assets',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssetCategoriesRoute = AppAssetCategoriesRouteImport.update({
+  id: '/asset-categories',
+  path: '/asset-categories',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAllTicketsRoute = AppAllTicketsRouteImport.update({
   id: '/all-tickets',
   path: '/all-tickets',
@@ -116,16 +182,27 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
+  '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
   '/assignments': typeof AppAssignmentsRoute
+  '/audit-logs': typeof AppAuditLogsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
+  '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
   '/my-assets': typeof AppMyAssetsRoute
   '/my-tickets': typeof AppMyTicketsRoute
+  '/notifications': typeof AppNotificationsRoute
+  '/profile': typeof AppProfileRoute
   '/raise-ticket': typeof AppRaiseTicketRoute
+  '/reports': typeof AppReportsRoute
+  '/roles': typeof AppRolesRoute
+  '/search': typeof AppSearchRoute
+  '/settings': typeof AppSettingsRoute
+  '/ticket-categories': typeof AppTicketCategoriesRoute
   '/ticket-history': typeof AppTicketHistoryRoute
   '/vendors': typeof AppVendorsRoute
   '/warranty': typeof AppWarrantyRoute
@@ -134,16 +211,27 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
+  '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
   '/assignments': typeof AppAssignmentsRoute
+  '/audit-logs': typeof AppAuditLogsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
+  '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
   '/my-assets': typeof AppMyAssetsRoute
   '/my-tickets': typeof AppMyTicketsRoute
+  '/notifications': typeof AppNotificationsRoute
+  '/profile': typeof AppProfileRoute
   '/raise-ticket': typeof AppRaiseTicketRoute
+  '/reports': typeof AppReportsRoute
+  '/roles': typeof AppRolesRoute
+  '/search': typeof AppSearchRoute
+  '/settings': typeof AppSettingsRoute
+  '/ticket-categories': typeof AppTicketCategoriesRoute
   '/ticket-history': typeof AppTicketHistoryRoute
   '/vendors': typeof AppVendorsRoute
   '/warranty': typeof AppWarrantyRoute
@@ -154,16 +242,27 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/all-tickets': typeof AppAllTicketsRoute
+  '/_app/asset-categories': typeof AppAssetCategoriesRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/assigned-tickets': typeof AppAssignedTicketsRoute
   '/_app/assignments': typeof AppAssignmentsRoute
+  '/_app/audit-logs': typeof AppAuditLogsRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/departments': typeof AppDepartmentsRoute
   '/_app/employees': typeof AppEmployeesRoute
+  '/_app/knowledge-base': typeof AppKnowledgeBaseRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/maintenance-history': typeof AppMaintenanceHistoryRoute
   '/_app/my-assets': typeof AppMyAssetsRoute
   '/_app/my-tickets': typeof AppMyTicketsRoute
+  '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/profile': typeof AppProfileRoute
   '/_app/raise-ticket': typeof AppRaiseTicketRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/roles': typeof AppRolesRoute
+  '/_app/search': typeof AppSearchRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/ticket-categories': typeof AppTicketCategoriesRoute
   '/_app/ticket-history': typeof AppTicketHistoryRoute
   '/_app/vendors': typeof AppVendorsRoute
   '/_app/warranty': typeof AppWarrantyRoute
@@ -174,16 +273,27 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/all-tickets'
+    | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
     | '/assignments'
+    | '/audit-logs'
     | '/dashboard'
+    | '/departments'
     | '/employees'
+    | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
     | '/my-assets'
     | '/my-tickets'
+    | '/notifications'
+    | '/profile'
     | '/raise-ticket'
+    | '/reports'
+    | '/roles'
+    | '/search'
+    | '/settings'
+    | '/ticket-categories'
     | '/ticket-history'
     | '/vendors'
     | '/warranty'
@@ -192,16 +302,27 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/all-tickets'
+    | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
     | '/assignments'
+    | '/audit-logs'
     | '/dashboard'
+    | '/departments'
     | '/employees'
+    | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
     | '/my-assets'
     | '/my-tickets'
+    | '/notifications'
+    | '/profile'
     | '/raise-ticket'
+    | '/reports'
+    | '/roles'
+    | '/search'
+    | '/settings'
+    | '/ticket-categories'
     | '/ticket-history'
     | '/vendors'
     | '/warranty'
@@ -211,16 +332,27 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/all-tickets'
+    | '/_app/asset-categories'
     | '/_app/assets'
     | '/_app/assigned-tickets'
     | '/_app/assignments'
+    | '/_app/audit-logs'
     | '/_app/dashboard'
+    | '/_app/departments'
     | '/_app/employees'
+    | '/_app/knowledge-base'
     | '/_app/maintenance'
     | '/_app/maintenance-history'
     | '/_app/my-assets'
     | '/_app/my-tickets'
+    | '/_app/notifications'
+    | '/_app/profile'
     | '/_app/raise-ticket'
+    | '/_app/reports'
+    | '/_app/roles'
+    | '/_app/search'
+    | '/_app/settings'
+    | '/_app/ticket-categories'
     | '/_app/ticket-history'
     | '/_app/vendors'
     | '/_app/warranty'
@@ -276,11 +408,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTicketHistoryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/ticket-categories': {
+      id: '/_app/ticket-categories'
+      path: '/ticket-categories'
+      fullPath: '/ticket-categories'
+      preLoaderRoute: typeof AppTicketCategoriesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/search': {
+      id: '/_app/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AppSearchRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roles': {
+      id: '/_app/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof AppRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/raise-ticket': {
       id: '/_app/raise-ticket'
       path: '/raise-ticket'
       fullPath: '/raise-ticket'
       preLoaderRoute: typeof AppRaiseTicketRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/notifications': {
+      id: '/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/my-tickets': {
@@ -311,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMaintenanceRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/knowledge-base': {
+      id: '/_app/knowledge-base'
+      path: '/knowledge-base'
+      fullPath: '/knowledge-base'
+      preLoaderRoute: typeof AppKnowledgeBaseRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/employees': {
       id: '/_app/employees'
       path: '/employees'
@@ -318,11 +506,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmployeesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/departments': {
+      id: '/_app/departments'
+      path: '/departments'
+      fullPath: '/departments'
+      preLoaderRoute: typeof AppDepartmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit-logs': {
+      id: '/_app/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/audit-logs'
+      preLoaderRoute: typeof AppAuditLogsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/assignments': {
@@ -346,6 +548,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssetsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/asset-categories': {
+      id: '/_app/asset-categories'
+      path: '/asset-categories'
+      fullPath: '/asset-categories'
+      preLoaderRoute: typeof AppAssetCategoriesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/all-tickets': {
       id: '/_app/all-tickets'
       path: '/all-tickets'
@@ -358,16 +567,27 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAllTicketsRoute: typeof AppAllTicketsRoute
+  AppAssetCategoriesRoute: typeof AppAssetCategoriesRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAssignedTicketsRoute: typeof AppAssignedTicketsRoute
   AppAssignmentsRoute: typeof AppAssignmentsRoute
+  AppAuditLogsRoute: typeof AppAuditLogsRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
+  AppKnowledgeBaseRoute: typeof AppKnowledgeBaseRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppMaintenanceHistoryRoute: typeof AppMaintenanceHistoryRoute
   AppMyAssetsRoute: typeof AppMyAssetsRoute
   AppMyTicketsRoute: typeof AppMyTicketsRoute
+  AppNotificationsRoute: typeof AppNotificationsRoute
+  AppProfileRoute: typeof AppProfileRoute
   AppRaiseTicketRoute: typeof AppRaiseTicketRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppRolesRoute: typeof AppRolesRoute
+  AppSearchRoute: typeof AppSearchRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppTicketCategoriesRoute: typeof AppTicketCategoriesRoute
   AppTicketHistoryRoute: typeof AppTicketHistoryRoute
   AppVendorsRoute: typeof AppVendorsRoute
   AppWarrantyRoute: typeof AppWarrantyRoute
@@ -375,16 +595,27 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAllTicketsRoute: AppAllTicketsRoute,
+  AppAssetCategoriesRoute: AppAssetCategoriesRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAssignedTicketsRoute: AppAssignedTicketsRoute,
   AppAssignmentsRoute: AppAssignmentsRoute,
+  AppAuditLogsRoute: AppAuditLogsRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppDepartmentsRoute: AppDepartmentsRoute,
   AppEmployeesRoute: AppEmployeesRoute,
+  AppKnowledgeBaseRoute: AppKnowledgeBaseRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,
   AppMaintenanceHistoryRoute: AppMaintenanceHistoryRoute,
   AppMyAssetsRoute: AppMyAssetsRoute,
   AppMyTicketsRoute: AppMyTicketsRoute,
+  AppNotificationsRoute: AppNotificationsRoute,
+  AppProfileRoute: AppProfileRoute,
   AppRaiseTicketRoute: AppRaiseTicketRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppRolesRoute: AppRolesRoute,
+  AppSearchRoute: AppSearchRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppTicketCategoriesRoute: AppTicketCategoriesRoute,
   AppTicketHistoryRoute: AppTicketHistoryRoute,
   AppVendorsRoute: AppVendorsRoute,
   AppWarrantyRoute: AppWarrantyRoute,
