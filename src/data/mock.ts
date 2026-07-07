@@ -124,9 +124,9 @@ function rng(seed: number) {
 const rand = rng(42);
 const pick = <T>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
 
-const FIRST = ["Aarav","Priya","John","Emma","Liam","Sophia","Noah","Ava","Ethan","Isabella","Lucas","Mia","Amelia","Oliver","Elena","Rahul","Ananya","Kavya","Rohan","Neha","Chloe","Mason","James","Ella","Benjamin","Charlotte","Henry","Grace","Alexander","Zoe","Michael","Sarah","Daniel","Lily","David","Nora","Matthew","Ruby","Joseph","Hannah"];
-const LAST = ["Sharma","Patel","Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Kumar","Singh","Gupta","Verma","Nair","Iyer","Kapoor"];
-const DESIGNATIONS = ["Software Engineer","Senior Engineer","Product Manager","Designer","Analyst","Director","VP","Coordinator","Specialist","Team Lead","Manager","Consultant"];
+const FIRST = ["Aarav", "Priya", "John", "Emma", "Liam", "Sophia", "Noah", "Ava", "Ethan", "Isabella", "Lucas", "Mia", "Amelia", "Oliver", "Elena", "Rahul", "Ananya", "Kavya", "Rohan", "Neha", "Chloe", "Mason", "James", "Ella", "Benjamin", "Charlotte", "Henry", "Grace", "Alexander", "Zoe", "Michael", "Sarah", "Daniel", "Lily", "David", "Nora", "Matthew", "Ruby", "Joseph", "Hannah"];
+const LAST = ["Sharma", "Patel", "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Kumar", "Singh", "Gupta", "Verma", "Nair", "Iyer", "Kapoor"];
+const DESIGNATIONS = ["Software Engineer", "Senior Engineer", "Product Manager", "Designer", "Analyst", "Director", "VP", "Coordinator", "Specialist", "Team Lead", "Manager", "Consultant"];
 
 function fmtDate(d: Date) { return d.toISOString().slice(0, 10); }
 function daysAgo(n: number) { const d = new Date("2026-07-06"); d.setDate(d.getDate() - n); return fmtDate(d); }
@@ -136,7 +136,7 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
   const first = FIRST[i % FIRST.length];
   const last = LAST[(i * 3) % LAST.length];
   const name = `${first} ${last}`;
-  
+
   let allocationDate: string | undefined = undefined;
   let allocationTime: string | undefined = undefined;
   let allocationStatus: "Awaiting Asset Verification" | "Waiting for Inventory" | "Ready for Allocation" | "Completed" | undefined = undefined;
@@ -230,8 +230,8 @@ export const assets: Asset[] = Array.from({ length: 1000 }, (_, i) => {
     name: `${mfr} ${cat} ${1000 + i}`,
     category: cat,
     manufacturer: mfr,
-    model: `${mfr.slice(0,2).toUpperCase()}-${Math.floor(rand()*9000+1000)}`,
-    serial: `SN${Math.floor(rand()*1e10).toString(36).toUpperCase().padStart(10,"0")}`,
+    model: `${mfr.slice(0, 2).toUpperCase()}-${Math.floor(rand() * 9000 + 1000)}`,
+    serial: `SN${Math.floor(rand() * 1e10).toString(36).toUpperCase().padStart(10, "0")}`,
     purchaseDate: daysAgo(Math.floor(rand() * 1500) + 30),
     warrantyExpiry: daysFromNow(Math.floor(rand() * 800) - 200),
     location: pick(LOCATIONS),
@@ -241,9 +241,9 @@ export const assets: Asset[] = Array.from({ length: 1000 }, (_, i) => {
   };
 });
 
-const PRIORITIES: Ticket["priority"][] = ["Low","Medium","High","Critical"];
-const TSTATUSES: Ticket["status"][] = ["Open","Assigned","In Progress","Waiting","Resolved","Closed"];
-const SLA: Ticket["sla"][] = ["On Track","At Risk","Breached"];
+const PRIORITIES: Ticket["priority"][] = ["Low", "Medium", "High", "Critical"];
+const TSTATUSES: Ticket["status"][] = ["Open", "Assigned", "In Progress", "Waiting", "Resolved", "Closed"];
+const SLA: Ticket["sla"][] = ["On Track", "At Risk", "Breached"];
 
 export const tickets: Ticket[] = Array.from({ length: 500 }, (_, i) => {
   const created = daysAgo(Math.floor(rand() * 120));
@@ -306,19 +306,19 @@ export const maintenance: Maintenance[] = Array.from({ length: 80 }, (_, i) => (
   assetId: assets[Math.floor(rand() * assets.length)].id,
   engineer: `${pick(FIRST)} ${pick(LAST)}`,
   date: daysAgo(Math.floor(rand() * 200)),
-  resolution: ["Replaced RAM module","Cleaned internal fans","Reinstalled OS","Replaced keyboard","Battery replacement","Screen replacement"][i % 6],
-  parts: ["RAM 16GB","Battery","Screen","Keyboard","SSD 512GB","N/A"][i % 6],
+  resolution: ["Replaced RAM module", "Cleaned internal fans", "Reinstalled OS", "Replaced keyboard", "Battery replacement", "Screen replacement"][i % 6],
+  parts: ["RAM 16GB", "Battery", "Screen", "Keyboard", "SSD 512GB", "N/A"][i % 6],
   cost: Math.floor(rand() * 500) + 50,
   status: rand() > 0.2 ? "Completed" : "In Progress",
 }));
 
 export const auditLogs = Array.from({ length: 120 }, (_, i) => ({
   id: `LOG-${i}`,
-  action: ["User Login","Asset Created","Ticket Assigned","Role Updated","Setting Changed","Employee Added","Asset Retired"][i % 7],
+  action: ["User Login", "Asset Created", "Ticket Assigned", "Role Updated", "Setting Changed", "Employee Added", "Asset Retired"][i % 7],
   user: employees[i % 20].name,
   target: `TKT-${5000 + i}`,
   timestamp: daysAgo(Math.floor(rand() * 40)),
-  ip: `10.0.${Math.floor(rand()*255)}.${Math.floor(rand()*255)}`,
+  ip: `10.0.${Math.floor(rand() * 255)}.${Math.floor(rand() * 255)}`,
 }));
 
 export const notifications = [
@@ -332,13 +332,13 @@ export const notifications = [
 export const knowledgeBase = Array.from({ length: 20 }, (_, i) => ({
   id: `KB-${100 + i}`,
   title: [
-    "How to connect to VPN","Resetting your Windows password","Configuring Outlook mail",
-    "Printer troubleshooting guide","Setting up Multi-Factor Authentication","VPN certificate installation",
-    "Requesting new software","Slack workspace onboarding","Video conferencing best practices",
-    "SharePoint access request","Deploying Company Portal","Common laptop issues",
-    "Password policy overview","Data backup procedures","Security incident reporting",
-    "Bring Your Own Device (BYOD) policy","Encryption on macOS","Remote work checklist",
-    "Onboarding new hires","Offboarding checklist",
+    "How to connect to VPN", "Resetting your Windows password", "Configuring Outlook mail",
+    "Printer troubleshooting guide", "Setting up Multi-Factor Authentication", "VPN certificate installation",
+    "Requesting new software", "Slack workspace onboarding", "Video conferencing best practices",
+    "SharePoint access request", "Deploying Company Portal", "Common laptop issues",
+    "Password policy overview", "Data backup procedures", "Security incident reporting",
+    "Bring Your Own Device (BYOD) policy", "Encryption on macOS", "Remote work checklist",
+    "Onboarding new hires", "Offboarding checklist",
   ][i],
   category: pick(TICKET_CATEGORIES),
   updatedAt: daysAgo(Math.floor(rand() * 90)),

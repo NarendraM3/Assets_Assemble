@@ -20,7 +20,7 @@ export interface TicketListProps {
   showBoard?: boolean;
 }
 
-const STATUS_LANES: Ticket["status"][] = ["Open","Assigned","In Progress","Waiting","Resolved","Closed"];
+const STATUS_LANES: Ticket["status"][] = ["Open", "Assigned", "In Progress", "Waiting", "Resolved", "Closed"];
 
 export function TicketList({ title, description, filter, actions }: TicketListProps) {
   const [selected, setSelected] = useState<Ticket | null>(null);
@@ -35,19 +35,19 @@ export function TicketList({ title, description, filter, actions }: TicketListPr
 
   const columns: ColumnDef<Ticket>[] = [
     { accessorKey: "id", header: "ID" },
-    { accessorKey: "title", header: "Title", cell: ({row}) => <div className="max-w-sm truncate">{row.original.title}</div> },
-    { id: "priority", header: "Priority", cell: ({row}) => <StatusBadge status={row.original.priority}/> },
+    { accessorKey: "title", header: "Title", cell: ({ row }) => <div className="max-w-sm truncate">{row.original.title}</div> },
+    { id: "priority", header: "Priority", cell: ({ row }) => <StatusBadge status={row.original.priority} /> },
     { accessorKey: "category", header: "Category" },
     { accessorKey: "createdBy", header: "Requester" },
-    { accessorKey: "assignee", header: "Assignee", cell: ({row}) => row.original.assignee || <span className="text-muted-foreground">—</span> },
-    { id: "sla", header: "SLA", cell: ({row}) => <StatusBadge status={row.original.sla}/> },
-    { id: "status", header: "Status", cell: ({row}) => <StatusBadge status={row.original.status}/> },
+    { accessorKey: "assignee", header: "Assignee", cell: ({ row }) => row.original.assignee || <span className="text-muted-foreground">—</span> },
+    { id: "sla", header: "SLA", cell: ({ row }) => <StatusBadge status={row.original.sla} /> },
+    { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
     { accessorKey: "updatedAt", header: "Updated" },
   ];
 
   return (
     <>
-      <PageHeader title={title} description={description} actions={actions}/>
+      <PageHeader title={title} description={description} actions={actions} />
       <Tabs value={tab} onValueChange={setTab} className="mb-4">
         <TabsList>
           <TabsTrigger value="all">All ({tickets.filter(t => !filter || filter(t)).length})</TabsTrigger>
@@ -73,9 +73,9 @@ export function TicketList({ title, description, filter, actions }: TicketListPr
                 <div className="text-xs text-muted-foreground">{selected.id}</div>
                 <SheetTitle className="text-xl">{selected.title}</SheetTitle>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <StatusBadge status={selected.priority}/>
-                  <StatusBadge status={selected.status}/>
-                  <StatusBadge status={selected.sla}/>
+                  <StatusBadge status={selected.priority} />
+                  <StatusBadge status={selected.status} />
+                  <StatusBadge status={selected.sla} />
                 </div>
               </SheetHeader>
               <div className="grid grid-cols-2 gap-3 text-sm mb-6 p-3 bg-muted/40 rounded-md">
@@ -95,7 +95,7 @@ export function TicketList({ title, description, filter, actions }: TicketListPr
 
               <div className="mt-6">
                 <div className="font-semibold text-sm mb-2">Add Comment</div>
-                <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Type a reply…" className="min-h-24"/>
+                <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Type a reply…" className="min-h-24" />
                 <div className="flex justify-between mt-3">
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => toast.success("Ticket reassigned")}>Reassign</Button>

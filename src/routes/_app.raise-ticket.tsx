@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_app/raise-ticket")({
 const schema = z.object({
   title: z.string().trim().min(5, "Title must be at least 5 characters").max(120),
   description: z.string().trim().min(15, "Please describe the issue in detail").max(2000),
-  priority: z.enum(["Low","Medium","High","Critical"]),
+  priority: z.enum(["Low", "Medium", "High", "Critical"]),
   category: z.string().min(1, "Select a category"),
   assetId: z.string().optional(),
 });
@@ -30,7 +30,7 @@ type FormV = z.infer<typeof schema>;
 
 function RaiseTicket() {
   const nav = useNavigate();
-  
+
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormV>({
     resolver: zodResolver(schema),
     defaultValues: { priority: "Medium", category: "", assetId: "" },
@@ -55,25 +55,25 @@ function RaiseTicket() {
           <Card className="p-6 space-y-4">
             <div>
               <Label>Title</Label>
-              <Input className="mt-1.5" placeholder="e.g. Laptop won't boot after update" {...register("title")}/>
+              <Input className="mt-1.5" placeholder="e.g. Laptop won't boot after update" {...register("title")} />
               {errors.title && <div className="text-xs text-destructive mt-1">{errors.title.message}</div>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Priority</Label>
                 <Select value={priority} onValueChange={v => setValue("priority", v as FormV["priority"])}>
-                  <SelectTrigger className="mt-1.5"><SelectValue/></SelectTrigger>
+                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["Low","Medium","High","Critical"].map(p=><SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    {["Low", "Medium", "High", "Critical"].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Category</Label>
                 <Select value={category} onValueChange={v => setValue("category", v)}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a category"/></SelectTrigger>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a category" /></SelectTrigger>
                   <SelectContent>
-                    {TICKET_CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {TICKET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {errors.category && <div className="text-xs text-destructive mt-1">{errors.category.message}</div>}
@@ -82,7 +82,7 @@ function RaiseTicket() {
             <div>
               <Label>Related Asset (optional)</Label>
               <Select value={watch("assetId")} onValueChange={v => setValue("assetId", v)}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Attach to an asset"/></SelectTrigger>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Attach to an asset" /></SelectTrigger>
                 <SelectContent>
                   {assets.slice(0, 20).map(a => <SelectItem key={a.id} value={a.id}>{a.id} — {a.name}</SelectItem>)}
                 </SelectContent>
@@ -90,21 +90,21 @@ function RaiseTicket() {
             </div>
             <div>
               <Label>Description</Label>
-              <Textarea className="mt-1.5 min-h-32" placeholder="Steps to reproduce, error messages, impact…" {...register("description")}/>
+              <Textarea className="mt-1.5 min-h-32" placeholder="Steps to reproduce, error messages, impact…" {...register("description")} />
               {errors.description && <div className="text-xs text-destructive mt-1">{errors.description.message}</div>}
             </div>
             <div>
               <Label>Attachments</Label>
               <label className="mt-1.5 flex items-center justify-center gap-2 border-2 border-dashed rounded-md p-6 text-sm text-muted-foreground hover:border-primary/40 cursor-pointer transition-colors">
-                <Upload className="h-4 w-4"/>
+                <Upload className="h-4 w-4" />
                 <span>Drop files or click to upload (screenshots, logs)</span>
-                <input type="file" multiple className="hidden"/>
+                <input type="file" multiple className="hidden" />
               </label>
             </div>
           </Card>
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => reset()}>Reset</Button>
-            <Button type="button" variant="outline" onClick={saveDraft}><Save className="h-4 w-4 mr-1"/>Save Draft</Button>
+            <Button type="button" variant="outline" onClick={saveDraft}><Save className="h-4 w-4 mr-1" />Save Draft</Button>
             <Button type="submit">Submit Ticket</Button>
           </div>
         </form>
