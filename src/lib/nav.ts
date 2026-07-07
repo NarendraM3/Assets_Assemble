@@ -42,7 +42,6 @@ export const NAV: Record<Role, NavGroup[]> = {
     { label: "Knowledge", items: [
       { to: "/maintenance-history", label: "Maintenance History", icon: Wrench },
       { to: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
-      { to: "/reports", label: "Reports", icon: FileBarChart },
     ]},
   ],
   asset_manager: [
@@ -58,7 +57,6 @@ export const NAV: Record<Role, NavGroup[]> = {
     ]},
     { label: "Partners", items: [
       { to: "/vendors", label: "Vendors", icon: ShoppingBag },
-      { to: "/reports", label: "Reports", icon: FileBarChart },
     ]},
   ],
   admin: [
@@ -76,7 +74,6 @@ export const NAV: Record<Role, NavGroup[]> = {
       { to: "/settings", label: "Application Settings", icon: SettingsIcon },
     ]},
     { label: "Insights", items: [
-      { to: "/reports", label: "Reports", icon: FileBarChart },
       { to: "/audit-logs", label: "Audit Logs", icon: ScrollText },
     ]},
   ],
