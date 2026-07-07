@@ -7,6 +7,7 @@ export const Route = createFileRoute("/_app/my-tickets")({
       title="My Tickets"
       description="Track the tickets you've raised and follow their progress."
       filter={(t) => !["Closed"].includes(t.status)}
+      workflowRole="employee"
     />
   ),
 });

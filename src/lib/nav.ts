@@ -64,6 +64,11 @@ export const NAV: Record<Role, NavGroup[]> = {
       ]
     },
     {
+      label: "Requests", items: [
+        { to: "/approved-request-queue", label: "Approved Request Queue", icon: ClipboardList },
+      ]
+    },
+    {
       label: "Inventory", items: [
         { to: "/assets", label: "Assets", icon: Package },
         { to: "/assignments", label: "Assignments", icon: ClipboardList },
@@ -81,6 +86,11 @@ export const NAV: Record<Role, NavGroup[]> = {
     {
       label: "Overview", items: [
         { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      ]
+    },
+    {
+      label: "Approvals", items: [
+        { to: "/escalation-approvals", label: "Escalation Approvals", icon: ClipboardList },
       ]
     },
     {

@@ -56,7 +56,7 @@ export interface Ticket {
   description: string;
   priority: "Low" | "Medium" | "High" | "Critical";
   category: string;
-  status: "Open" | "Assigned" | "In Progress" | "Waiting" | "Resolved" | "Closed";
+  status: "Open" | "Assigned" | "In Progress" | "Waiting" | "Escalated" | "Pending Administration Approval" | "Approved for Asset Manager" | "Resolved" | "Closed";
   createdBy: string;
   assignee: string | null;
   assetId: string | null;
@@ -64,6 +64,29 @@ export interface Ticket {
   updatedAt: string;
   sla: "On Track" | "At Risk" | "Breached";
   comments: { author: string; message: string; at: string }[];
+  supportResolution?: string;
+  adminRemarks?: string;
+  assetAction?: "Repair" | "Replace" | "Reassign";
+  assetDetails?: string;
+  assetRemarks?: string;
+  assetResolution?: string;
+  assignedRole?: Role;
+  timeline?: {
+    step: string;
+    timestamp: string;
+    actor: string;
+    role: Role | "system";
+    remarks?: string;
+    status?: Ticket["status"];
+  }[];
+  auditTrail?: {
+    user: string;
+    role: Role | "system";
+    timestamp: string;
+    fromStatus?: Ticket["status"];
+    toStatus: Ticket["status"];
+    comment?: string;
+  }[];
 }
 
 export interface Assignment {

@@ -28,6 +28,7 @@ import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
 import { Route as AppMaintenanceHistoryRouteImport } from './routes/_app.maintenance-history'
 import { Route as AppMaintenanceRouteImport } from './routes/_app.maintenance'
 import { Route as AppKnowledgeBaseRouteImport } from './routes/_app.knowledge-base'
+import { Route as AppEscalationApprovalsRouteImport } from './routes/_app.escalation-approvals'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
@@ -36,6 +37,7 @@ import { Route as AppAssignmentsRouteImport } from './routes/_app.assignments'
 import { Route as AppAssignedTicketsRouteImport } from './routes/_app.assigned-tickets'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
 import { Route as AppAssetCategoriesRouteImport } from './routes/_app.asset-categories'
+import { Route as AppApprovedRequestQueueRouteImport } from './routes/_app.approved-request-queue'
 import { Route as AppAllocationOnboardingRouteImport } from './routes/_app.allocation-onboarding'
 import { Route as AppAllTicketsRouteImport } from './routes/_app.all-tickets'
 
@@ -134,6 +136,11 @@ const AppKnowledgeBaseRoute = AppKnowledgeBaseRouteImport.update({
   path: '/knowledge-base',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEscalationApprovalsRoute = AppEscalationApprovalsRouteImport.update({
+  id: '/escalation-approvals',
+  path: '/escalation-approvals',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
@@ -174,6 +181,11 @@ const AppAssetCategoriesRoute = AppAssetCategoriesRouteImport.update({
   path: '/asset-categories',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovedRequestQueueRoute = AppApprovedRequestQueueRouteImport.update({
+  id: '/approved-request-queue',
+  path: '/approved-request-queue',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAllocationOnboardingRoute = AppAllocationOnboardingRouteImport.update({
   id: '/allocation-onboarding',
   path: '/allocation-onboarding',
@@ -190,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
   '/allocation-onboarding': typeof AppAllocationOnboardingRoute
+  '/approved-request-queue': typeof AppApprovedRequestQueueRoute
   '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -198,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
+  '/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -220,6 +234,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
   '/allocation-onboarding': typeof AppAllocationOnboardingRoute
+  '/approved-request-queue': typeof AppApprovedRequestQueueRoute
   '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -228,6 +243,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
+  '/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -252,6 +268,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/all-tickets': typeof AppAllTicketsRoute
   '/_app/allocation-onboarding': typeof AppAllocationOnboardingRoute
+  '/_app/approved-request-queue': typeof AppApprovedRequestQueueRoute
   '/_app/asset-categories': typeof AppAssetCategoriesRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -260,6 +277,7 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
   '/_app/employees': typeof AppEmployeesRoute
+  '/_app/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/_app/knowledge-base': typeof AppKnowledgeBaseRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -284,6 +302,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/all-tickets'
     | '/allocation-onboarding'
+    | '/approved-request-queue'
     | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
@@ -292,6 +311,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/employees'
+    | '/escalation-approvals'
     | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
@@ -314,6 +334,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/all-tickets'
     | '/allocation-onboarding'
+    | '/approved-request-queue'
     | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
@@ -322,6 +343,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/employees'
+    | '/escalation-approvals'
     | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
@@ -345,6 +367,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/all-tickets'
     | '/_app/allocation-onboarding'
+    | '/_app/approved-request-queue'
     | '/_app/asset-categories'
     | '/_app/assets'
     | '/_app/assigned-tickets'
@@ -353,6 +376,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/departments'
     | '/_app/employees'
+    | '/_app/escalation-approvals'
     | '/_app/knowledge-base'
     | '/_app/maintenance'
     | '/_app/maintenance-history'
@@ -512,6 +536,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKnowledgeBaseRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/escalation-approvals': {
+      id: '/_app/escalation-approvals'
+      path: '/escalation-approvals'
+      fullPath: '/escalation-approvals'
+      preLoaderRoute: typeof AppEscalationApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/employees': {
       id: '/_app/employees'
       path: '/employees'
@@ -568,6 +599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssetCategoriesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approved-request-queue': {
+      id: '/_app/approved-request-queue'
+      path: '/approved-request-queue'
+      fullPath: '/approved-request-queue'
+      preLoaderRoute: typeof AppApprovedRequestQueueRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/allocation-onboarding': {
       id: '/_app/allocation-onboarding'
       path: '/allocation-onboarding'
@@ -588,6 +626,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAllTicketsRoute: typeof AppAllTicketsRoute
   AppAllocationOnboardingRoute: typeof AppAllocationOnboardingRoute
+  AppApprovedRequestQueueRoute: typeof AppApprovedRequestQueueRoute
   AppAssetCategoriesRoute: typeof AppAssetCategoriesRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAssignedTicketsRoute: typeof AppAssignedTicketsRoute
@@ -596,6 +635,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
+  AppEscalationApprovalsRoute: typeof AppEscalationApprovalsRoute
   AppKnowledgeBaseRoute: typeof AppKnowledgeBaseRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppMaintenanceHistoryRoute: typeof AppMaintenanceHistoryRoute
@@ -617,6 +657,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAllTicketsRoute: AppAllTicketsRoute,
   AppAllocationOnboardingRoute: AppAllocationOnboardingRoute,
+  AppApprovedRequestQueueRoute: AppApprovedRequestQueueRoute,
   AppAssetCategoriesRoute: AppAssetCategoriesRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAssignedTicketsRoute: AppAssignedTicketsRoute,
@@ -625,6 +666,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,
   AppEmployeesRoute: AppEmployeesRoute,
+  AppEscalationApprovalsRoute: AppEscalationApprovalsRoute,
   AppKnowledgeBaseRoute: AppKnowledgeBaseRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,
   AppMaintenanceHistoryRoute: AppMaintenanceHistoryRoute,

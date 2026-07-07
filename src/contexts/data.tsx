@@ -10,6 +10,7 @@ import {
   type Asset,
   type Assignment,
   type Ticket,
+  type Role,
 } from "@/data/mock";
 
 interface DataCtx {
@@ -19,6 +20,13 @@ interface DataCtx {
   tickets: Ticket[];
   auditLogs: any[];
   notifications: any[];
+  createTicket: (ticket: Omit<Ticket, "id" | "status" | "createdAt" | "updatedAt" | "assignee" | "sla" | "comments" | "assignedRole" | "timeline" | "auditTrail">, actor: string) => Ticket;
+  acceptTicket: (ticketId: string, actor: string) => void;
+  updateTicketStatus: (ticketId: string, status: Ticket["status"], actor: string, role: Role, comment?: string) => void;
+  addTicketComment: (ticketId: string, actor: string, role: Role, message: string) => void;
+  escalateTicket: (ticketId: string, actor: string, remarks: string) => void;
+  reviewEscalation: (ticketId: string, approved: boolean, actor: string, remarks: string) => void;
+  resolveAssetTicket: (ticketId: string, actor: string, details: { action: NonNullable<Ticket["assetAction"]>; assetDetails: string; remarks: string; resolution: string }) => void;
   addEmployee: (emp: Omit<Employee, "id" | "avatar" | "joinDate" | "status">) => Employee;
   deleteEmployee: (id: string) => void;
   assignAssets: (employeeId: string, assetIds: string[]) => void;
@@ -94,6 +102,269 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const saveAndSetNotifications = (newNotifs: any[]) => {
     setNotifications(newNotifs);
     localStorage.setItem("itsm.notifications", JSON.stringify(newNotifs));
+  };
+
+  const saveAndSetTickets = (newTickets: Ticket[]) => {
+    setTickets(newTickets);
+    localStorage.setItem("itsm.tickets", JSON.stringify(newTickets));
+  };
+
+  const nowStamp = () => new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  const addAuditLog = (action: string, user: string, target: string) => {
+    const nextLogIdNum = Math.max(...auditLogs.map(l => parseInt(l.id.replace("LOG-", "")) || 0), 119) + 1;
+    const newLog = {
+      id: `LOG-${nextLogIdNum}`,
+      action,
+      user,
+      target,
+      timestamp: today(),
+      ip: "10.0.1.25"
+    };
+    saveAndSetAuditLogs([newLog, ...auditLogs]);
+  };
+
+  const addNotification = (title: string, type: "info" | "warning" | "success" | "danger" = "info") => {
+    const newNotif = {
+      id: String(Date.now()),
+      title,
+      type,
+      time: "Just now",
+      unread: true
+    };
+    saveAndSetNotifications([newNotif, ...notifications]);
+  };
+
+  const timelineStep = (
+    step: string,
+    actor: string,
+    role: Role | "system",
+    remarks?: string,
+    status?: Ticket["status"]
+  ) => ({
+    step,
+    timestamp: nowStamp(),
+    actor,
+    role,
+    remarks,
+    status
+  });
+
+  const auditEntry = (
+    user: string,
+    role: Role | "system",
+    toStatus: Ticket["status"],
+    fromStatus?: Ticket["status"],
+    comment?: string
+  ) => ({
+    user,
+    role,
+    timestamp: nowStamp(),
+    fromStatus,
+    toStatus,
+    comment
+  });
+
+  const normalizeTicket = (ticket: Ticket): Ticket => {
+    const timeline = ticket.timeline && ticket.timeline.length > 0
+      ? ticket.timeline
+      : [
+          { step: "Ticket Raised", timestamp: ticket.createdAt, actor: ticket.createdBy, role: "employee" as const, remarks: "Employee submitted the support request.", status: "Open" as const },
+          { step: "Assigned to Support", timestamp: ticket.createdAt, actor: "System", role: "system" as const, remarks: "Ticket routed to the support queue.", status: "Open" as const }
+        ];
+    const auditTrail = ticket.auditTrail && ticket.auditTrail.length > 0
+      ? ticket.auditTrail
+      : [{ user: ticket.createdBy, role: "employee" as const, timestamp: ticket.createdAt, toStatus: ticket.status, comment: "Initial ticket state" }];
+    return {
+      ...ticket,
+      assignedRole: ticket.assignedRole ?? (
+        ticket.status === "Pending Administration Approval" ? "admin" :
+        ticket.status === "Approved for Asset Manager" ? "asset_manager" :
+        "support"
+      ),
+      timeline,
+      auditTrail
+    };
+  };
+
+  const updateTicket = (
+    ticketId: string,
+    actor: string,
+    role: Role,
+    status: Ticket["status"],
+    step: string,
+    remarks?: string,
+    patch?: Partial<Ticket>
+  ) => {
+    let nextTicket: Ticket | undefined;
+    const updated = tickets.map(t => {
+      if (t.id !== ticketId) return t;
+      const current = normalizeTicket(t);
+      const next = {
+        ...current,
+        ...patch,
+        status,
+        updatedAt: today(),
+        timeline: [...(current.timeline || []), timelineStep(step, actor, role, remarks, status)],
+        auditTrail: [...(current.auditTrail || []), auditEntry(actor, role, status, current.status, remarks)]
+      };
+      nextTicket = next;
+      return next;
+    });
+    saveAndSetTickets(updated);
+    if (nextTicket) addAuditLog(step, actor, ticketId);
+  };
+
+  const createTicket = (
+    ticketData: Omit<Ticket, "id" | "status" | "createdAt" | "updatedAt" | "assignee" | "sla" | "comments" | "assignedRole" | "timeline" | "auditTrail">,
+    actor: string
+  ) => {
+    const nextIdNum = Math.max(...tickets.map(t => parseInt(t.id.replace("TKT-", "")) || 0), 4999) + 1;
+    const id = `TKT-${nextIdNum}`;
+    const stamp = nowStamp();
+    const newTicket: Ticket = {
+      ...ticketData,
+      id,
+      status: "Open",
+      assignee: null,
+      createdAt: today(),
+      updatedAt: today(),
+      sla: ticketData.priority === "Critical" ? "At Risk" : "On Track",
+      comments: [{ author: actor, message: ticketData.description, at: today() }],
+      assignedRole: "support",
+      timeline: [
+        { step: "Ticket Raised", timestamp: stamp, actor, role: "employee", remarks: "Employee submitted the support request.", status: "Open" },
+        { step: "Assigned to Support", timestamp: stamp, actor: "System", role: "system", remarks: "Ticket routed to the support queue.", status: "Open" }
+      ],
+      auditTrail: [{ user: actor, role: "employee", timestamp: stamp, toStatus: "Open", comment: "Ticket created" }]
+    };
+    saveAndSetTickets([newTicket, ...tickets]);
+    addAuditLog("Ticket Raised", actor, id);
+    addNotification(`${id} opened in Support queue`, "info");
+    return newTicket;
+  };
+
+  const acceptTicket = (ticketId: string, actor: string) => {
+    updateTicket(ticketId, actor, "support", "Assigned", "Assigned to Support", "Support engineer accepted the ticket.", { assignee: actor, assignedRole: "support" });
+  };
+
+  const updateTicketStatus = (ticketId: string, status: Ticket["status"], actor: string, role: Role, comment?: string) => {
+    const step = status === "In Progress" ? "In Progress" : status === "Resolved" ? "Resolved" : status === "Closed" ? "Closed" : "Status Updated";
+    const patch: Partial<Ticket> = {};
+    if (comment) {
+      const current = tickets.find(t => t.id === ticketId);
+      patch.comments = [...(current?.comments || []), { author: actor, message: comment, at: today() }];
+      if (status === "Resolved") patch.supportResolution = comment;
+    }
+    updateTicket(ticketId, actor, role, status, step, comment, patch);
+  };
+
+  const addTicketComment = (ticketId: string, actor: string, role: Role, message: string) => {
+    const current = tickets.find(t => t.id === ticketId);
+    if (!current || !message.trim()) return;
+    const normalized = normalizeTicket(current);
+    const updated = tickets.map(t => t.id === ticketId ? {
+      ...normalized,
+      comments: [...(normalized.comments || []), { author: actor, message: message.trim(), at: today() }],
+      updatedAt: today(),
+      auditTrail: [...(normalized.auditTrail || []), auditEntry(actor, role, normalized.status, normalized.status, message.trim())]
+    } : t);
+    saveAndSetTickets(updated);
+    addAuditLog("Ticket Comment Added", actor, ticketId);
+  };
+
+  const escalateTicket = (ticketId: string, actor: string, remarks: string) => {
+    updateTicket(
+      ticketId,
+      actor,
+      "support",
+      "Pending Administration Approval",
+      "Pending Administration Approval",
+      remarks || "Support escalation requested.",
+      { assignedRole: "admin", adminRemarks: undefined }
+    );
+    addNotification(`${ticketId} pending administration approval`, "warning");
+  };
+
+  const reviewEscalation = (ticketId: string, approved: boolean, actor: string, remarks: string) => {
+    if (approved) {
+      updateTicket(
+        ticketId,
+        actor,
+        "admin",
+        "Approved for Asset Manager",
+        "Approved",
+        remarks || "Escalation approved for asset manager action.",
+        { assignedRole: "asset_manager", adminRemarks: remarks }
+      );
+      const current = tickets.find(t => t.id === ticketId);
+      if (current) {
+        const normalized = normalizeTicket(current);
+        const updated = tickets.map(t => t.id === ticketId ? {
+          ...normalized,
+          status: "Approved for Asset Manager" as const,
+          assignedRole: "asset_manager" as const,
+          adminRemarks: remarks,
+          updatedAt: today(),
+          timeline: [
+            ...(normalized.timeline || []),
+            timelineStep("Approved", actor, "admin", remarks || "Escalation approved.", "Approved for Asset Manager"),
+            timelineStep("Assigned to Asset Manager", "System", "system", "Ticket routed to the asset manager queue.", "Approved for Asset Manager")
+          ],
+          auditTrail: [
+            ...(normalized.auditTrail || []),
+            auditEntry(actor, "admin", "Approved for Asset Manager", normalized.status, remarks || "Approved"),
+            auditEntry("System", "system", "Approved for Asset Manager", "Approved for Asset Manager", "Assigned to Asset Manager")
+          ]
+        } : t);
+        saveAndSetTickets(updated);
+      }
+      addNotification(`${ticketId} approved for Asset Manager`, "success");
+    } else {
+      updateTicket(
+        ticketId,
+        actor,
+        "admin",
+        "Open",
+        "Rejected",
+        remarks || "Escalation rejected and returned to Support.",
+        { assignedRole: "support", adminRemarks: remarks }
+      );
+      addNotification(`${ticketId} returned to Support by Administration`, "danger");
+    }
+  };
+
+  const resolveAssetTicket = (
+    ticketId: string,
+    actor: string,
+    details: { action: NonNullable<Ticket["assetAction"]>; assetDetails: string; remarks: string; resolution: string }
+  ) => {
+    updateTicket(
+      ticketId,
+      actor,
+      "asset_manager",
+      "Resolved",
+      "Resolved",
+      details.resolution || "Asset action completed.",
+      {
+        assignedRole: "support",
+        assetAction: details.action,
+        assetDetails: details.assetDetails,
+        assetRemarks: details.remarks,
+        assetResolution: details.resolution,
+        supportResolution: details.resolution
+      }
+    );
+    addNotification(`${ticketId} resolved by Asset Manager`, "success");
   };
 
   const addEmployee = (empData: Omit<Employee, "id" | "avatar" | "joinDate" | "status">) => {
@@ -337,7 +608,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ employees, assets, assignments, tickets, auditLogs, notifications, addEmployee, deleteEmployee, assignAssets, addAsset, retireAsset, verifyOnboardingAsset, completeOnboardingAllocation }}>
+    <Ctx.Provider value={{
+      employees,
+      assets,
+      assignments,
+      tickets: tickets.map(normalizeTicket),
+      auditLogs,
+      notifications,
+      createTicket,
+      acceptTicket,
+      updateTicketStatus,
+      addTicketComment,
+      escalateTicket,
+      reviewEscalation,
+      resolveAssetTicket,
+      addEmployee,
+      deleteEmployee,
+      assignAssets,
+      addAsset,
+      retireAsset,
+      verifyOnboardingAsset,
+      completeOnboardingAllocation
+    }}>
       {children}
     </Ctx.Provider>
   );

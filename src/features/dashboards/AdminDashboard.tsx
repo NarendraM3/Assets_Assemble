@@ -8,12 +8,14 @@ import { StatCard } from "@/components/common/StatCard";
 import { ChartCard } from "@/components/common/ChartCard";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/contexts/data";
+import { useAuth } from "@/contexts/auth";
 import { TICKET_CATEGORIES, DEPARTMENTS, CATEGORIES } from "@/data/mock";
 import { toast } from "sonner";
 
 const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)"];
 
 export function AdminDashboard() {
+  const { user } = useAuth();
   const { employees, assets, tickets } = useData();
   const failures = ["Laptop","Desktop","Monitor","Printer","Mobile Phone"].map((c,i)=>({
     c, v: 40 - i*6 + (i%2)*3,

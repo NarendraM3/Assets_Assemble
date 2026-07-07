@@ -7,6 +7,9 @@ const MAP: Record<string, string> = {
   "Assigned": "bg-primary/15 text-primary border-primary/20",
   "In Progress": "bg-warning/15 text-warning border-warning/20",
   "Waiting": "bg-muted text-muted-foreground border",
+  "Escalated": "bg-warning/15 text-warning border-warning/20",
+  "Pending Administration Approval": "bg-warning/15 text-warning border-warning/20",
+  "Approved for Asset Manager": "bg-primary/15 text-primary border-primary/20",
   "Resolved": "bg-success/15 text-success border-success/20",
   "Closed": "bg-muted text-muted-foreground border",
   // asset status

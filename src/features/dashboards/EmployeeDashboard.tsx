@@ -5,16 +5,17 @@ import { StatCard } from "@/components/common/StatCard";
 import { Timeline } from "@/components/common/Timeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { assets, tickets } from "@/data/mock";
 import { useAuth } from "@/contexts/auth";
+import { useData } from "@/contexts/data";
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
+  const { assets, tickets } = useData();
   const myAssets = assets.slice(0, 6);
-  const myTickets = tickets.slice(0, 12);
+  const myTickets = tickets.filter(t => t.createdBy === user?.name).slice(0, 12);
   const open = myTickets.filter((t) => ["Open","Assigned","In Progress"].includes(t.status)).length;
   const closed = myTickets.filter((t) => t.status === "Closed" || t.status === "Resolved").length;
-  const pending = myTickets.filter((t) => t.status === "Waiting").length;
+  const pending = myTickets.filter((t) => ["Waiting", "Escalated", "Pending Administration Approval", "Approved for Asset Manager"].includes(t.status)).length;
 
   return (
     <>

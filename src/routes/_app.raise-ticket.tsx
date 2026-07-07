@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { TICKET_CATEGORIES, assets } from "@/data/mock";
+import { TICKET_CATEGORIES } from "@/data/mock";
+import { useAuth } from "@/contexts/auth";
+import { useData } from "@/contexts/data";
 
 export const Route = createFileRoute("/_app/raise-ticket")({
   component: RaiseTicket,
@@ -30,6 +32,8 @@ type FormV = z.infer<typeof schema>;
 
 function RaiseTicket() {
   const nav = useNavigate();
+  const { user } = useAuth();
+  const { assets, createTicket } = useData();
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormV>({
     resolver: zodResolver(schema),
@@ -39,8 +43,16 @@ function RaiseTicket() {
   const category = watch("category");
 
   const onSubmit = (v: FormV) => {
-    toast.success(`Ticket submitted — we'll get back to you shortly`, {
-      description: `Priority: ${v.priority} • Category: ${v.category}`,
+    const ticket = createTicket({
+      title: v.title,
+      description: v.description,
+      priority: v.priority,
+      category: v.category,
+      assetId: v.assetId || null,
+      createdBy: user?.name || "Employee User",
+    }, user?.name || "Employee User");
+    toast.success("Ticket submitted - we'll get back to you shortly", {
+      description: `${ticket.id} - Priority: ${v.priority} - Category: ${v.category}`,
     });
     reset();
     nav({ to: "/my-tickets" });
@@ -84,13 +96,13 @@ function RaiseTicket() {
               <Select value={watch("assetId")} onValueChange={v => setValue("assetId", v)}>
                 <SelectTrigger className="mt-1.5"><SelectValue placeholder="Attach to an asset" /></SelectTrigger>
                 <SelectContent>
-                  {assets.slice(0, 20).map(a => <SelectItem key={a.id} value={a.id}>{a.id} — {a.name}</SelectItem>)}
+                  {assets.slice(0, 20).map(a => <SelectItem key={a.id} value={a.id}>{a.id} - {a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Description</Label>
-              <Textarea className="mt-1.5 min-h-32" placeholder="Steps to reproduce, error messages, impact…" {...register("description")} />
+              <Textarea className="mt-1.5 min-h-32" placeholder="Steps to reproduce, error messages, impact..." {...register("description")} />
               {errors.description && <div className="text-xs text-destructive mt-1">{errors.description.message}</div>}
             </div>
             <div>
@@ -113,10 +125,10 @@ function RaiseTicket() {
             <div className="font-semibold text-sm mb-2">Response Times</div>
             <div className="space-y-2 text-sm">
               {[
-                { p: "Critical", t: "≤ 1 hour", tone: "text-destructive" },
-                { p: "High", t: "≤ 4 hours", tone: "text-warning" },
-                { p: "Medium", t: "≤ 1 business day", tone: "text-info" },
-                { p: "Low", t: "≤ 3 business days", tone: "text-muted-foreground" },
+                { p: "Critical", t: "<= 1 hour", tone: "text-destructive" },
+                { p: "High", t: "<= 4 hours", tone: "text-warning" },
+                { p: "Medium", t: "<= 1 business day", tone: "text-info" },
+                { p: "Low", t: "<= 3 business days", tone: "text-muted-foreground" },
               ].map(x => (
                 <div key={x.p} className="flex items-center justify-between border-b last:border-0 py-2">
                   <span className={x.tone + " font-medium"}>{x.p}</span>

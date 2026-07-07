@@ -6,7 +6,8 @@ export const Route = createFileRoute("/_app/assigned-tickets")({
     <TicketList
       title="Assigned to Me"
       description="Tickets currently in your queue."
-      filter={(t) => !!t.assignee && !["Closed"].includes(t.status)}
+      filter={(t) => !["Closed", "Pending Administration Approval", "Approved for Asset Manager"].includes(t.status)}
+      workflowRole="support"
     />
   ),
 });
