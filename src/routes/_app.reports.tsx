@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/common/ChartCard";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { Button } from "@/components/ui/button";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
+} from "recharts";
 import { CATEGORIES, DEPARTMENTS, tickets, assets, employees } from "@/data/mock";
 import { toast } from "sonner";
 
@@ -42,18 +45,20 @@ export const Route = createFileRoute("/_app/reports")({
             </Card>
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          <ChartCard title="Assets Distribution">
-            <ResponsiveContainer width="100%" height={280}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <ChartCard title="Assets by Category">
+            <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={assetsByCat} dataKey="v" nameKey="c" outerRadius={100}>{assetsByCat.map((d,i)=><Cell key={i} fill={d.fill}/>)}</Pie>
+                <Pie data={assetsByCat} dataKey="v" nameKey="c" outerRadius={100}>
+                  {assetsByCat.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                </Pie>
                 <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
                 <Legend wrapperStyle={{ fontSize: 11 }}/>
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
           <ChartCard title="Tickets by Department">
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={ticketsByDept}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
                 <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={12}/>
@@ -64,19 +69,31 @@ export const Route = createFileRoute("/_app/reports")({
             </ResponsiveContainer>
           </ChartCard>
         </div>
-        <ChartCard title="Monthly Ticket Activity">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthly}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Legend/>
-              <Line dataKey="opened" stroke="var(--info)" strokeWidth={2}/>
-              <Line dataKey="closed" stroke="var(--success)" strokeWidth={2}/>
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        <div className="grid grid-cols-1 gap-4">
+          <ChartCard title="Ticket Volumes">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={monthly}>
+                <defs>
+                  <linearGradient id="o" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--info)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--info)" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="c" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
+                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={12}/>
+                <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
+                <Legend/>
+                <Area type="monotone" dataKey="opened" stroke="var(--info)" fill="url(#o)" strokeWidth={2}/>
+                <Area type="monotone" dataKey="closed" stroke="var(--success)" fill="url(#c)" strokeWidth={2}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
       </>
     );
   },

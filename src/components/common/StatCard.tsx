@@ -27,8 +27,9 @@ export function StatCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
+      className="h-full"
     >
-      <Card className="p-5 hover:shadow-md transition-shadow">
+      <Card className="p-5 h-full hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between">
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>

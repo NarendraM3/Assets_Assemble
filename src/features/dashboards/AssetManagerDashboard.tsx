@@ -8,11 +8,13 @@ import { StatCard } from "@/components/common/StatCard";
 import { ChartCard } from "@/components/common/ChartCard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { assets, CATEGORIES, assignments, employees } from "@/data/mock";
+import { CATEGORIES } from "@/data/mock";
+import { useData } from "@/contexts/data";
 
 const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)","oklch(0.5 0.1 200)","oklch(0.55 0.18 320)"];
 
 export function AssetManagerDashboard() {
+  const { assets, assignments, employees } = useData();
   const total = assets.length;
   const assigned = assets.filter(a => a.status === "Assigned").length;
   const available = assets.filter(a => a.status === "Available").length;
@@ -23,28 +25,31 @@ export function AssetManagerDashboard() {
     name: c, value: assets.filter(a => a.category === c).length, fill: COLORS[i % COLORS.length],
   }));
   const byStatus = [
-    { name: "Assigned", v: assigned }, { name: "Available", v: available },
-    { name: "Maintenance", v: maint }, { name: "Retired", v: retired },
+    { name: "Assigned", v: assigned },
+    { name: "Available", v: available },
+    { name: "Maint.", v: maint },
+    { name: "Retired", v: retired },
   ];
-  const warrantyTrend = ["Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => ({
-    m, expiring: 12 + i * 3 + (i%2)*4,
+  const warrantyTrend = ["Aug","Sep","Oct","Nov","Dec","Jan"].map((m, i) => ({
+    m, expiring: 12 + i * 4 + (i % 2) * 5,
   }));
 
   return (
     <>
-      <PageHeader title="Asset Manager Dashboard" description="Lifecycle overview of the enterprise asset fleet." />
+      <PageHeader title="Asset Manager Dashboard" description="Lifecycle metrics, deployment status, and inventory health." />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Assets" value={total.toLocaleString()} icon={Package} tone="primary" index={0}/>
-        <StatCard label="Assigned" value={assigned} icon={CheckCircle2} tone="success" index={1}/>
-        <StatCard label="Available" value={available} icon={PackageCheck} tone="info" index={2}/>
-        <StatCard label="Maintenance" value={maint} icon={Wrench} tone="warning" index={3}/>
-        <StatCard label="Retired" value={retired} icon={Archive} tone="default" index={4}/>
+        <StatCard label="Total Assets" value={total.toLocaleString()} icon={Package} tone="primary" index={0} />
+        <StatCard label="Assigned" value={assigned} icon={PackageCheck} tone="info" index={1} />
+        <StatCard label="Available" value={available} icon={CheckCircle2} tone="success" index={2} />
+        <StatCard label="In Maintenance" value={maint} icon={Wrench} tone="warning" index={3} />
+        <StatCard label="Retired" value={retired} icon={Archive} tone="danger" index={4} />
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <ChartCard title="Assets by Category">
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={byCategory} dataKey="value" nameKey="name" outerRadius={95}>
+              <Pie data={byCategory} dataKey="value" nameKey="name" outerRadius={100}>
                 {byCategory.map((d,i)=><Cell key={i} fill={d.fill}/>)}
               </Pie>
               <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
@@ -81,17 +86,19 @@ export function AssetManagerDashboard() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
       <Card className="p-5">
         <div className="font-semibold text-sm mb-4">Recent Assignments</div>
         <div className="divide-y">
           {assignments.slice(0, 6).map(a => {
-            const asset = assets.find(x => x.id === a.assetId)!;
+            const asset = assets.find(x => x.id === a.assetId);
+            if (!asset) return null;
             const emp = employees.find(e => e.id === a.employeeId);
             return (
               <div key={a.id} className="py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{asset.name}</div>
-                  <div className="text-xs text-muted-foreground">Assigned to {emp?.name} • {a.assignedDate}</div>
+                  <div className="text-xs text-muted-foreground">Assigned to {emp?.name || a.employeeId} • {a.assignedDate}</div>
                 </div>
                 <StatusBadge status={a.status}/>
               </div>

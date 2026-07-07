@@ -1,6 +1,6 @@
 import type { Role } from "@/data/mock";
 import {
-  LayoutDashboard, Package, Ticket as TicketIcon, User, History, Users,
+  LayoutDashboard, Package, Ticket as TicketIcon, User, Users,
   Building2, Tags, ShieldCheck, Settings as SettingsIcon, FileBarChart,
   ClipboardList, Wrench, ShoppingBag, BookOpen, PlusCircle, ScrollText, Calendar,
 } from "lucide-react";
@@ -25,7 +25,6 @@ export const NAV: Record<Role, NavGroup[]> = {
     { label: "Support", items: [
       { to: "/raise-ticket", label: "Raise Ticket", icon: PlusCircle },
       { to: "/my-tickets", label: "My Tickets", icon: TicketIcon },
-      { to: "/ticket-history", label: "Ticket History", icon: History },
     ]},
     { label: "Account", items: [
       { to: "/profile", label: "Profile", icon: User },
@@ -34,6 +33,7 @@ export const NAV: Record<Role, NavGroup[]> = {
   support: [
     { label: "Overview", items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/allocation-onboarding", label: "Asset Allocation Onboarding", icon: ClipboardList },
     ]},
     { label: "Tickets", items: [
       { to: "/assigned-tickets", label: "Assigned Tickets", icon: ClipboardList },
@@ -48,6 +48,7 @@ export const NAV: Record<Role, NavGroup[]> = {
   asset_manager: [
     { label: "Overview", items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/onboarding-verification", label: "Employee Onboarding Verification", icon: ClipboardList },
     ]},
     { label: "Inventory", items: [
       { to: "/assets", label: "Assets", icon: Package },

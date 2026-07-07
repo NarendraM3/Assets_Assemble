@@ -6,11 +6,13 @@ import {
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { ChartCard } from "@/components/common/ChartCard";
-import { employees, assets, tickets, TICKET_CATEGORIES, DEPARTMENTS } from "@/data/mock";
+import { useData } from "@/contexts/data";
+import { TICKET_CATEGORIES, DEPARTMENTS } from "@/data/mock";
 
 const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)"];
 
 export function AdminDashboard() {
+  const { employees, assets, tickets } = useData();
   const failures = ["Laptop","Desktop","Monitor","Printer","Mobile Phone"].map((c,i)=>({
     c, v: 40 - i*6 + (i%2)*3,
   }));

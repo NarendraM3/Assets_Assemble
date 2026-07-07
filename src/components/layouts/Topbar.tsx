@@ -12,18 +12,19 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { notifications } from "@/data/mock";
 import { cn } from "@/lib/utils";
+import { useData } from "@/contexts/data";
 
 export function Topbar() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const { notifications } = useData();
   const [q, setQ] = useState("");
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-30 h-14 border-b bg-card/80 backdrop-blur flex items-center gap-3 px-4">
+    <header className="sticky top-0 z-30 h-14 border-b bg-card/80 backdrop-blur flex items-center gap-2 px-4 md:px-6">
       <Link to="/dashboard" className="md:hidden flex items-center gap-2">
         <div className="h-7 w-7 rounded-md bg-primary text-primary-foreground grid place-items-center">
           <Boxes className="h-4 w-4" />
@@ -31,7 +32,7 @@ export function Topbar() {
       </Link>
       <form
         onSubmit={(e) => { e.preventDefault(); if (q) navigate({ to: "/search", search: { q } as never }); }}
-        className="flex-1 max-w-xl relative"
+        className="flex-1 max-w-lg relative"
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -41,7 +42,7 @@ export function Topbar() {
           className="pl-9 h-9 bg-muted/50 border-transparent focus-visible:bg-background"
         />
       </form>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 ml-auto">
         <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
@@ -50,7 +51,7 @@ export function Topbar() {
             <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
               <Bell className="h-4 w-4" />
               {unread > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold grid place-items-center">
+                <span className="absolute -top-1 -right-1 h-4 min-w-[14px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold grid place-items-center ring-2 ring-card">
                   {unread}
                 </span>
               )}
@@ -90,7 +91,7 @@ export function Topbar() {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 hover:bg-accent rounded-md p-1 pr-2">
+            <button className="flex items-center gap-2 hover:bg-accent rounded-md px-2 py-1">
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">{user?.avatar}</AvatarFallback>
               </Avatar>

@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { ROLES } from "@/data/mock";
 import { Shield, Users, Wrench, Package, Plus } from "lucide-react";
 
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_app/roles")({
               <div className="mt-4 pt-4 border-t">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Permissions</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {PERMS.map((p, i) => (
+                  {PERMS.map((p) => (
                     <label key={p} className="flex items-center gap-2 text-sm">
                       <Checkbox defaultChecked={
                         r.id === "admin" ||

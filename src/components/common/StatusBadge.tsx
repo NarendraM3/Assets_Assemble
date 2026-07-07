@@ -30,6 +30,7 @@ const MAP: Record<string, string> = {
   "Transferred": "bg-info/15 text-info border-info/20",
   "Completed": "bg-success/15 text-success border-success/20",
   "Scheduled": "bg-info/15 text-info border-info/20",
+  "Pending": "bg-warning/15 text-warning border-warning/20",
 };
 
 export function StatusBadge({ status }: { status: string }) {

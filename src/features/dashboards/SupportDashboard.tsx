@@ -8,11 +8,12 @@ import { StatCard } from "@/components/common/StatCard";
 import { ChartCard } from "@/components/common/ChartCard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { tickets } from "@/data/mock";
+import { useData } from "@/contexts/data";
 
 const COLORS = ["oklch(0.55 0.2 255)", "oklch(0.65 0.16 150)", "oklch(0.72 0.17 55)", "oklch(0.6 0.2 25)"];
 
 export function SupportDashboard() {
+  const { tickets } = useData();
   const open = tickets.filter(t => t.status === "Open").length;
   const critical = tickets.filter(t => t.priority === "Critical").length;
   const priorityData = ["Low","Medium","High","Critical"].map((p, i) => ({

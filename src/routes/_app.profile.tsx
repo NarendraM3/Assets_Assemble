@@ -11,26 +11,31 @@ import { assets, tickets } from "@/data/mock";
 import { Mail, Phone, MapPin, Building2, Edit } from "lucide-react";
 
 export const Route = createFileRoute("/_app/profile")({
-  component: () => {
-    const { user } = useAuth();
-    const myAssets = assets.filter(a => a.status === "Assigned").slice(0, 5);
-    const myTickets = tickets.slice(0, 5);
-    return (
-      <>
-        <PageHeader title="My Profile" description="Personal information and activity overview."
-          actions={<Button variant="outline"><Edit className="h-4 w-4 mr-1"/>Edit Profile</Button>}/>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="p-6 text-center">
-            <Avatar className="h-24 w-24 mx-auto"><AvatarFallback className="bg-primary text-primary-foreground text-2xl">{user?.avatar}</AvatarFallback></Avatar>
-            <div className="mt-4 font-semibold text-lg">{user?.name}</div>
-            <div className="text-sm text-muted-foreground capitalize">{user?.role.replace("_"," ")}</div>
-            <div className="mt-6 text-left space-y-3 text-sm">
-              <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground"/>{user?.email}</div>
-              <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground"/>+1 555-0142</div>
-              <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/>HQ — New York</div>
-              <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/>Information Technology</div>
-            </div>
-          </Card>
+  component: ProfilePage,
+});
+
+function ProfilePage() {
+  const { user } = useAuth();
+
+  const myAssets = assets.filter(a => a.status === "Assigned").slice(0, 5);
+  const myTickets = tickets.slice(0, 5);
+
+  return (
+    <>
+      <PageHeader title="My Profile" description="Personal information and activity overview."
+        actions={<Button variant="outline"><Edit className="h-4 w-4 mr-1"/>Edit Profile</Button>}/>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="p-6 text-center">
+          <Avatar className="h-24 w-24 mx-auto"><AvatarFallback className="bg-primary text-primary-foreground text-2xl">{user?.avatar}</AvatarFallback></Avatar>
+          <div className="mt-4 font-semibold text-lg">{user?.name}</div>
+          <div className="text-sm text-muted-foreground capitalize">{user?.role.replace("_"," ")}</div>
+          <div className="mt-6 text-left space-y-3 text-sm">
+            <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground"/>{user?.email}</div>
+            <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground"/>+1 555-0142</div>
+            <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/>HQ — New York</div>
+            <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/>Information Technology</div>
+          </div>
+        </Card>
           <div className="lg:col-span-2">
             <Tabs defaultValue="assets">
               <TabsList>
@@ -76,5 +81,4 @@ export const Route = createFileRoute("/_app/profile")({
         </div>
       </>
     );
-  },
-});
+  }

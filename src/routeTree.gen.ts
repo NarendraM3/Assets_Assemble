@@ -14,7 +14,6 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppWarrantyRouteImport } from './routes/_app.warranty'
 import { Route as AppVendorsRouteImport } from './routes/_app.vendors'
-import { Route as AppTicketHistoryRouteImport } from './routes/_app.ticket-history'
 import { Route as AppTicketCategoriesRouteImport } from './routes/_app.ticket-categories'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSearchRouteImport } from './routes/_app.search'
@@ -22,6 +21,7 @@ import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppRaiseTicketRouteImport } from './routes/_app.raise-ticket'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppOnboardingVerificationRouteImport } from './routes/_app.onboarding-verification'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppMyTicketsRouteImport } from './routes/_app.my-tickets'
 import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
@@ -36,6 +36,7 @@ import { Route as AppAssignmentsRouteImport } from './routes/_app.assignments'
 import { Route as AppAssignedTicketsRouteImport } from './routes/_app.assigned-tickets'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
 import { Route as AppAssetCategoriesRouteImport } from './routes/_app.asset-categories'
+import { Route as AppAllocationOnboardingRouteImport } from './routes/_app.allocation-onboarding'
 import { Route as AppAllTicketsRouteImport } from './routes/_app.all-tickets'
 
 const LoginRoute = LoginRouteImport.update({
@@ -60,11 +61,6 @@ const AppWarrantyRoute = AppWarrantyRouteImport.update({
 const AppVendorsRoute = AppVendorsRouteImport.update({
   id: '/vendors',
   path: '/vendors',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTicketHistoryRoute = AppTicketHistoryRouteImport.update({
-  id: '/ticket-history',
-  path: '/ticket-history',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTicketCategoriesRoute = AppTicketCategoriesRouteImport.update({
@@ -102,6 +98,12 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
+const AppOnboardingVerificationRoute =
+  AppOnboardingVerificationRouteImport.update({
+    id: '/onboarding-verification',
+    path: '/onboarding-verification',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -172,6 +174,11 @@ const AppAssetCategoriesRoute = AppAssetCategoriesRouteImport.update({
   path: '/asset-categories',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAllocationOnboardingRoute = AppAllocationOnboardingRouteImport.update({
+  id: '/allocation-onboarding',
+  path: '/allocation-onboarding',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAllTicketsRoute = AppAllTicketsRouteImport.update({
   id: '/all-tickets',
   path: '/all-tickets',
@@ -182,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
+  '/allocation-onboarding': typeof AppAllocationOnboardingRoute
   '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -196,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/my-assets': typeof AppMyAssetsRoute
   '/my-tickets': typeof AppMyTicketsRoute
   '/notifications': typeof AppNotificationsRoute
+  '/onboarding-verification': typeof AppOnboardingVerificationRoute
   '/profile': typeof AppProfileRoute
   '/raise-ticket': typeof AppRaiseTicketRoute
   '/reports': typeof AppReportsRoute
@@ -203,7 +212,6 @@ export interface FileRoutesByFullPath {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRoute
   '/ticket-categories': typeof AppTicketCategoriesRoute
-  '/ticket-history': typeof AppTicketHistoryRoute
   '/vendors': typeof AppVendorsRoute
   '/warranty': typeof AppWarrantyRoute
 }
@@ -211,6 +219,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/all-tickets': typeof AppAllTicketsRoute
+  '/allocation-onboarding': typeof AppAllocationOnboardingRoute
   '/asset-categories': typeof AppAssetCategoriesRoute
   '/assets': typeof AppAssetsRoute
   '/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -225,6 +234,7 @@ export interface FileRoutesByTo {
   '/my-assets': typeof AppMyAssetsRoute
   '/my-tickets': typeof AppMyTicketsRoute
   '/notifications': typeof AppNotificationsRoute
+  '/onboarding-verification': typeof AppOnboardingVerificationRoute
   '/profile': typeof AppProfileRoute
   '/raise-ticket': typeof AppRaiseTicketRoute
   '/reports': typeof AppReportsRoute
@@ -232,7 +242,6 @@ export interface FileRoutesByTo {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRoute
   '/ticket-categories': typeof AppTicketCategoriesRoute
-  '/ticket-history': typeof AppTicketHistoryRoute
   '/vendors': typeof AppVendorsRoute
   '/warranty': typeof AppWarrantyRoute
 }
@@ -242,6 +251,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/all-tickets': typeof AppAllTicketsRoute
+  '/_app/allocation-onboarding': typeof AppAllocationOnboardingRoute
   '/_app/asset-categories': typeof AppAssetCategoriesRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/assigned-tickets': typeof AppAssignedTicketsRoute
@@ -256,6 +266,7 @@ export interface FileRoutesById {
   '/_app/my-assets': typeof AppMyAssetsRoute
   '/_app/my-tickets': typeof AppMyTicketsRoute
   '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/onboarding-verification': typeof AppOnboardingVerificationRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/raise-ticket': typeof AppRaiseTicketRoute
   '/_app/reports': typeof AppReportsRoute
@@ -263,7 +274,6 @@ export interface FileRoutesById {
   '/_app/search': typeof AppSearchRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/ticket-categories': typeof AppTicketCategoriesRoute
-  '/_app/ticket-history': typeof AppTicketHistoryRoute
   '/_app/vendors': typeof AppVendorsRoute
   '/_app/warranty': typeof AppWarrantyRoute
 }
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/all-tickets'
+    | '/allocation-onboarding'
     | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/my-assets'
     | '/my-tickets'
     | '/notifications'
+    | '/onboarding-verification'
     | '/profile'
     | '/raise-ticket'
     | '/reports'
@@ -294,7 +306,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/ticket-categories'
-    | '/ticket-history'
     | '/vendors'
     | '/warranty'
   fileRoutesByTo: FileRoutesByTo
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/all-tickets'
+    | '/allocation-onboarding'
     | '/asset-categories'
     | '/assets'
     | '/assigned-tickets'
@@ -316,6 +328,7 @@ export interface FileRouteTypes {
     | '/my-assets'
     | '/my-tickets'
     | '/notifications'
+    | '/onboarding-verification'
     | '/profile'
     | '/raise-ticket'
     | '/reports'
@@ -323,7 +336,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/ticket-categories'
-    | '/ticket-history'
     | '/vendors'
     | '/warranty'
   id:
@@ -332,6 +344,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/all-tickets'
+    | '/_app/allocation-onboarding'
     | '/_app/asset-categories'
     | '/_app/assets'
     | '/_app/assigned-tickets'
@@ -346,6 +359,7 @@ export interface FileRouteTypes {
     | '/_app/my-assets'
     | '/_app/my-tickets'
     | '/_app/notifications'
+    | '/_app/onboarding-verification'
     | '/_app/profile'
     | '/_app/raise-ticket'
     | '/_app/reports'
@@ -353,7 +367,6 @@ export interface FileRouteTypes {
     | '/_app/search'
     | '/_app/settings'
     | '/_app/ticket-categories'
-    | '/_app/ticket-history'
     | '/_app/vendors'
     | '/_app/warranty'
   fileRoutesById: FileRoutesById
@@ -399,13 +412,6 @@ declare module '@tanstack/react-router' {
       path: '/vendors'
       fullPath: '/vendors'
       preLoaderRoute: typeof AppVendorsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/ticket-history': {
-      id: '/_app/ticket-history'
-      path: '/ticket-history'
-      fullPath: '/ticket-history'
-      preLoaderRoute: typeof AppTicketHistoryRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/ticket-categories': {
@@ -455,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding-verification': {
+      id: '/_app/onboarding-verification'
+      path: '/onboarding-verification'
+      fullPath: '/onboarding-verification'
+      preLoaderRoute: typeof AppOnboardingVerificationRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notifications': {
@@ -555,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssetCategoriesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/allocation-onboarding': {
+      id: '/_app/allocation-onboarding'
+      path: '/allocation-onboarding'
+      fullPath: '/allocation-onboarding'
+      preLoaderRoute: typeof AppAllocationOnboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/all-tickets': {
       id: '/_app/all-tickets'
       path: '/all-tickets'
@@ -567,6 +587,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAllTicketsRoute: typeof AppAllTicketsRoute
+  AppAllocationOnboardingRoute: typeof AppAllocationOnboardingRoute
   AppAssetCategoriesRoute: typeof AppAssetCategoriesRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAssignedTicketsRoute: typeof AppAssignedTicketsRoute
@@ -581,6 +602,7 @@ interface AppRouteChildren {
   AppMyAssetsRoute: typeof AppMyAssetsRoute
   AppMyTicketsRoute: typeof AppMyTicketsRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppOnboardingVerificationRoute: typeof AppOnboardingVerificationRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRaiseTicketRoute: typeof AppRaiseTicketRoute
   AppReportsRoute: typeof AppReportsRoute
@@ -588,13 +610,13 @@ interface AppRouteChildren {
   AppSearchRoute: typeof AppSearchRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTicketCategoriesRoute: typeof AppTicketCategoriesRoute
-  AppTicketHistoryRoute: typeof AppTicketHistoryRoute
   AppVendorsRoute: typeof AppVendorsRoute
   AppWarrantyRoute: typeof AppWarrantyRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAllTicketsRoute: AppAllTicketsRoute,
+  AppAllocationOnboardingRoute: AppAllocationOnboardingRoute,
   AppAssetCategoriesRoute: AppAssetCategoriesRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAssignedTicketsRoute: AppAssignedTicketsRoute,
@@ -609,6 +631,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMyAssetsRoute: AppMyAssetsRoute,
   AppMyTicketsRoute: AppMyTicketsRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppOnboardingVerificationRoute: AppOnboardingVerificationRoute,
   AppProfileRoute: AppProfileRoute,
   AppRaiseTicketRoute: AppRaiseTicketRoute,
   AppReportsRoute: AppReportsRoute,
@@ -616,7 +639,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppSearchRoute: AppSearchRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTicketCategoriesRoute: AppTicketCategoriesRoute,
-  AppTicketHistoryRoute: AppTicketHistoryRoute,
   AppVendorsRoute: AppVendorsRoute,
   AppWarrantyRoute: AppWarrantyRoute,
 }

@@ -1,21 +1,23 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Package, Plus } from "lucide-react";
+import { Package } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { assets, type Asset } from "@/data/mock";
+import { type Asset } from "@/data/mock";
+import { useData } from "@/contexts/data";
 
 export const Route = createFileRoute("/_app/my-assets")({
   component: MyAssets,
 });
 
 function MyAssets() {
+  const { assets } = useData();
   const [view, setView] = useState<"grid" | "table">("grid");
-  const myAssets = useMemo(() => assets.filter(a => a.status === "Assigned").slice(0, 8), []);
+
+  const myAssets = useMemo(() => assets.filter(a => a.status === "Assigned").slice(0, 8), [assets]);
 
   const columns: ColumnDef<Asset>[] = [
     { accessorKey: "id", header: "Asset ID" },
@@ -32,12 +34,9 @@ function MyAssets() {
         title="My Assets"
         description="All hardware and software licenses currently assigned to you."
         actions={
-          <div className="flex gap-2">
-            <div className="inline-flex rounded-md border p-0.5">
-              <button onClick={() => setView("grid")} className={"px-3 py-1 text-xs rounded " + (view==="grid" ? "bg-primary text-primary-foreground" : "")}>Grid</button>
-              <button onClick={() => setView("table")} className={"px-3 py-1 text-xs rounded " + (view==="table" ? "bg-primary text-primary-foreground" : "")}>Table</button>
-            </div>
-            <Button asChild><Link to="/raise-ticket"><Plus className="h-4 w-4 mr-1"/>Report Issue</Link></Button>
+          <div className="inline-flex rounded-md border p-0.5">
+            <button onClick={() => setView("grid")} className={"px-3 py-1 text-xs rounded " + (view==="grid" ? "bg-primary text-primary-foreground" : "")}>Grid</button>
+            <button onClick={() => setView("table")} className={"px-3 py-1 text-xs rounded " + (view==="table" ? "bg-primary text-primary-foreground" : "")}>Table</button>
           </div>
         }
       />
@@ -61,7 +60,6 @@ function MyAssets() {
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <StatusBadge status={a.status}/>
-                <Link to="/raise-ticket" className="text-xs text-primary hover:underline">Raise Ticket</Link>
               </div>
             </Card>
           ))}

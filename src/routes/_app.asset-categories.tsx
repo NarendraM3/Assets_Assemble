@@ -23,7 +23,7 @@ function CategoryGrid({ items, count }: { items: string[]; count: (c: string) =>
   );
 }
 
-export const AssetCatRoute = createFileRoute("/_app/asset-categories")({
+export const Route = createFileRoute("/_app/asset-categories")({
   component: () => (
     <>
       <PageHeader title="Asset Categories" description="Classification schema for the asset catalog."
@@ -32,7 +32,6 @@ export const AssetCatRoute = createFileRoute("/_app/asset-categories")({
     </>
   ),
 });
-export const Route = AssetCatRoute;
 
 export function TicketCategoriesInner() {
   return (

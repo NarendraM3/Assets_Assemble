@@ -15,6 +15,24 @@ export interface Employee {
   avatar: string;
   phone: string;
   joinDate: string;
+  allocationDate?: string;
+  allocationTime?: string;
+  allocationStatus?: "Awaiting Asset Verification" | "Waiting for Inventory" | "Ready for Allocation" | "Completed";
+  requiredAssetCategory?: string;
+  allocatedAssetDetails?: {
+    assetId: string;
+    assetName: string;
+    serialNumber: string;
+    assignedAt: string;
+    assignedBy: string;
+    remarks?: string;
+  };
+  allocationHistory?: {
+    step: string;
+    timestamp: string;
+    actor: string;
+    remarks?: string;
+  }[];
 }
 
 export interface Asset {
@@ -118,6 +136,67 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
   const first = FIRST[i % FIRST.length];
   const last = LAST[(i * 3) % LAST.length];
   const name = `${first} ${last}`;
+  
+  let allocationDate: string | undefined = undefined;
+  let allocationTime: string | undefined = undefined;
+  let allocationStatus: "Awaiting Asset Verification" | "Waiting for Inventory" | "Ready for Allocation" | "Completed" | undefined = undefined;
+  let requiredAssetCategory: string | undefined = undefined;
+  let allocatedAssetDetails: any = undefined;
+  let allocationHistory: any[] | undefined = undefined;
+
+  if (i === 0) {
+    allocationDate = daysAgo(0); // today
+    allocationTime = "10:00";
+    allocationStatus = "Awaiting Asset Verification";
+    requiredAssetCategory = "Laptop";
+    allocationHistory = [
+      { step: "Employee Created", timestamp: `${daysAgo(1)} 09:00 AM`, actor: "Admin User", remarks: "Employee record created." },
+      { step: "Awaiting Asset Verification", timestamp: `${daysAgo(1)} 09:00 AM`, actor: "System", remarks: "Asset verification request sent to Asset Manager." }
+    ];
+  } else if (i === 1) {
+    allocationDate = daysFromNow(1); // tomorrow
+    allocationTime = "14:30";
+    allocationStatus = "Waiting for Inventory";
+    requiredAssetCategory = "Mobile Phone";
+    allocationHistory = [
+      { step: "Employee Created", timestamp: `${daysAgo(1)} 10:00 AM`, actor: "Admin User", remarks: "Employee record created." },
+      { step: "Awaiting Asset Verification", timestamp: `${daysAgo(1)} 10:00 AM`, actor: "System", remarks: "Asset verification request sent to Asset Manager." },
+      { step: "Waiting for Inventory", timestamp: `${daysAgo(0)} 11:30 AM`, actor: "Asset Manager User", remarks: "No available Mobile Phones in Austin Office. Procurement ticket raised." }
+    ];
+  } else if (i === 2) {
+    allocationDate = daysAgo(0); // today
+    allocationTime = "09:00"; // past
+    allocationStatus = "Ready for Allocation";
+    requiredAssetCategory = "Laptop";
+    allocationHistory = [
+      { step: "Employee Created", timestamp: `${daysAgo(2)} 09:00 AM`, actor: "Admin User", remarks: "Employee record created." },
+      { step: "Awaiting Asset Verification", timestamp: `${daysAgo(2)} 09:10 AM`, actor: "System", remarks: "Asset verification request sent." },
+      { step: "Inventory Verified", timestamp: `${daysAgo(1)} 02:00 PM`, actor: "Asset Manager User", remarks: "Inventory availability verified in Texas HQ." },
+      { step: "Ready for Allocation", timestamp: `${daysAgo(1)} 02:00 PM`, actor: "Asset Manager User", remarks: "Approved for Support allocation." }
+    ];
+  } else if (i === 3) {
+    allocationDate = daysAgo(1); // yesterday
+    allocationTime = "11:00";
+    allocationStatus = "Completed";
+    requiredAssetCategory = "Laptop";
+    allocatedAssetDetails = {
+      assetId: "AST-10022",
+      assetName: "Lenovo Monitor 1022", // matches categories/names
+      serialNumber: "SN55489723",
+      assignedAt: `${daysAgo(1)} 11:15 AM`,
+      assignedBy: "Support Engineer User",
+      remarks: "Delivered to user desk and verified networking connection."
+    };
+    allocationHistory = [
+      { step: "Employee Created", timestamp: `${daysAgo(3)} 09:00 AM`, actor: "Admin User", remarks: "Employee record created." },
+      { step: "Awaiting Asset Verification", timestamp: `${daysAgo(3)} 09:10 AM`, actor: "System", remarks: "Asset verification request sent." },
+      { step: "Inventory Verified", timestamp: `${daysAgo(2)} 11:00 AM`, actor: "Asset Manager User", remarks: "Verified." },
+      { step: "Ready for Allocation", timestamp: `${daysAgo(2)} 11:00 AM`, actor: "Asset Manager User", remarks: "Approved." },
+      { step: "Asset Assigned", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "Support Engineer User", remarks: "Assigned Asset AST-10022." },
+      { step: "Completed", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "Support Engineer User", remarks: "Setup completed." }
+    ];
+  }
+
   return {
     id: `EMP-${String(1000 + i)}`,
     name,
@@ -130,6 +209,12 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
     avatar: `${first[0]}${last[0]}`,
     phone: `+1 555-${String(1000 + Math.floor(rand() * 9000))}`,
     joinDate: daysAgo(Math.floor(rand() * 2000) + 30),
+    allocationDate,
+    allocationTime,
+    allocationStatus,
+    requiredAssetCategory,
+    allocatedAssetDetails,
+    allocationHistory,
   };
 });
 

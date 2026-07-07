@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { assets, CATEGORIES, MANUFACTURERS, LOCATIONS, type Asset, employees } from "@/data/mock";
+import { CATEGORIES, MANUFACTURERS, LOCATIONS, type Asset } from "@/data/mock";
+import { useData } from "@/contexts/data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/assets")({
@@ -22,17 +23,58 @@ export const Route = createFileRoute("/_app/assets")({
 });
 
 function AssetsPage() {
+  const { assets, employees, addAsset, retireAsset } = useData();
   const [selected, setSelected] = useState<Asset | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
+
+  // Form states
+  const [name, setName] = useState("");
+  const [assetCategory, setAssetCategory] = useState("");
+  const [manufacturer, setManufacturer] = useState("");
+  const [serial, setSerial] = useState("");
+  const [location, setLocation] = useState("");
+
+  const handleOpenCreate = () => {
+    setName("");
+    setAssetCategory("");
+    setManufacturer("");
+    setSerial("");
+    setLocation("");
+    setCreateOpen(true);
+  };
+
+  const handleCreate = () => {
+    if (!name.trim() || !assetCategory || !manufacturer || !serial.trim() || !location) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    addAsset({
+      name: name.trim(),
+      category: assetCategory,
+      manufacturer,
+      model: `${manufacturer.slice(0, 2).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`,
+      serial: serial.trim().toUpperCase(),
+      location,
+      assignedTo: null,
+      status: "Available",
+      purchaseDate: new Date().toISOString().slice(0, 10),
+      warrantyExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
+      cost: Math.floor(Math.random() * 2500) + 500,
+    });
+
+    toast.success("Asset created successfully");
+    setCreateOpen(false);
+  };
 
   const filtered = useMemo(() => {
     return assets.filter(a =>
       (category === "all" || a.category === category) &&
       (status === "all" || a.status === status)
     );
-  }, [category, status]);
+  }, [assets, category, status]);
 
   const columns: ColumnDef<Asset>[] = [
     { accessorKey: "id", header: "Asset ID" },
@@ -42,7 +84,7 @@ function AssetsPage() {
     { accessorKey: "serial", header: "Serial" },
     { accessorKey: "warrantyExpiry", header: "Warranty" },
     { accessorKey: "location", header: "Location" },
-    { id: "assignedTo", header: "Assigned", cell: ({row}) => row.original.assignedTo || <span className="text-muted-foreground">Unassigned</span> },
+    { id: "assignedTo", header: "Assigned", cell: ({row}) => row.original.assignedTo ? (employees.find(e => e.id === row.original.assignedTo)?.name || row.original.assignedTo) : <span className="text-muted-foreground">Unassigned</span> },
     { id: "status", header: "Status", cell: ({row}) => <StatusBadge status={row.original.status}/> },
     { id: "actions", header: "", cell: ({row}) => (
       <DropdownMenu>
@@ -52,7 +94,7 @@ function AssetsPage() {
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setSelected(row.original)}><Eye className="h-4 w-4 mr-2"/>View</DropdownMenuItem>
           <DropdownMenuItem onClick={() => toast.info("Edit not wired in demo")}><Edit className="h-4 w-4 mr-2"/>Edit</DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive" onClick={() => toast.success("Asset retired")}><Trash2 className="h-4 w-4 mr-2"/>Retire</DropdownMenuItem>
+          <DropdownMenuItem className="text-destructive" onClick={() => { retireAsset(row.original.id); toast.success("Asset retired"); }}><Trash2 className="h-4 w-4 mr-2"/>Retire</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -66,7 +108,7 @@ function AssetsPage() {
         actions={
           <>
             <Button variant="outline" onClick={() => toast.success("Export queued (demo)")}><Download className="h-4 w-4 mr-1"/>Export</Button>
-            <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1"/>Add Asset</Button>
+            <Button onClick={handleOpenCreate}><Plus className="h-4 w-4 mr-1"/>Add Asset</Button>
           </>
         }
       />
@@ -122,7 +164,7 @@ function AssetsPage() {
                     <span className="text-muted-foreground">Location</span><span>{selected.location}</span>
                     <span className="text-muted-foreground">Cost</span><span>${selected.cost.toLocaleString()}</span>
                     <span className="text-muted-foreground">Assigned</span>
-                    <span>{selected.assignedTo ? employees.find(e => e.id === selected.assignedTo)?.name : "Unassigned"}</span>
+                    <span>{selected.assignedTo ? (employees.find(e => e.id === selected.assignedTo)?.name || selected.assignedTo) : "Unassigned"}</span>
                   </div>
                 </Card>
                 <Card className="p-4">
@@ -141,23 +183,32 @@ function AssetsPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Asset</DialogTitle></DialogHeader>
           <div className="grid gap-3">
-            <div><Label>Name</Label><Input className="mt-1.5" placeholder="Dell Latitude 5540"/></div>
+            <div>
+              <Label>Name</Label>
+              <Input className="mt-1.5" placeholder="Dell Latitude 5540" value={name} onChange={e => setName(e.target.value)}/>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Category</Label>
-                <Select><SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
+                <Select value={assetCategory} onValueChange={setAssetCategory}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
                   <SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div><Label>Manufacturer</Label>
-                <Select><SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
+                <Select value={manufacturer} onValueChange={setManufacturer}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
                   <SelectContent>{MANUFACTURERS.map(m=><SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Serial Number</Label><Input className="mt-1.5" placeholder="SN…"/></div>
+              <div>
+                <Label>Serial Number</Label>
+                <Input className="mt-1.5" placeholder="SN…" value={serial} onChange={e => setSerial(e.target.value)}/>
+              </div>
               <div><Label>Location</Label>
-                <Select><SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
+                <Select value={location} onValueChange={setLocation}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select"/></SelectTrigger>
                   <SelectContent>{LOCATIONS.map(l=><SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -165,7 +216,7 @@ function AssetsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={() => { toast.success("Asset created"); setCreateOpen(false); }}>Create</Button>
+            <Button onClick={handleCreate}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
