@@ -95,17 +95,27 @@ export function TicketList({ title, description, filter, actions, workflowRole }
 
   const withRemarks = (fallback: string) => comment.trim() || fallback;
 
-  const columns: ColumnDef<Ticket>[] = [
-    { accessorKey: "id", header: "ID" },
-    { accessorKey: "title", header: "Title", cell: ({ row }) => <div className="max-w-sm truncate">{row.original.title}</div> },
-    { id: "priority", header: "Priority", cell: ({ row }) => <StatusBadge status={row.original.priority} /> },
-    { accessorKey: "category", header: "Category" },
-    { accessorKey: "createdBy", header: "Requester" },
-    { accessorKey: "assignee", header: "Assignee", cell: ({ row }) => row.original.assignee || <span className="text-muted-foreground">-</span> },
-    { id: "sla", header: "SLA", cell: ({ row }) => <StatusBadge status={row.original.sla} /> },
-    { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={displayStatus(row.original, role)} /> },
-    { accessorKey: "updatedAt", header: "Updated" },
-  ];
+  const columns = useMemo<ColumnDef<Ticket>[]>(() => {
+    const cols: ColumnDef<Ticket>[] = [
+      { accessorKey: "id", header: "ID" },
+      { accessorKey: "title", header: "Title", cell: ({ row }) => <div className="max-w-sm truncate">{row.original.title}</div> },
+      { id: "priority", header: "Priority", cell: ({ row }) => <StatusBadge status={row.original.priority} /> },
+      { accessorKey: "category", header: "Category" },
+      { accessorKey: "createdBy", header: "Requester" },
+      { accessorKey: "assignee", header: "Assignee", cell: ({ row }) => row.original.assignee || <span className="text-muted-foreground">-</span> },
+    ];
+
+    if (role !== "employee") {
+      cols.push({ id: "sla", header: "SLA", cell: ({ row }) => <StatusBadge status={row.original.sla} /> });
+    }
+
+    cols.push(
+      { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={displayStatus(row.original, role)} /> },
+      { accessorKey: "updatedAt", header: "Updated" }
+    );
+
+    return cols;
+  }, [role]);
 
   const renderWorkflowActions = () => {
     if (!selected) return null;
@@ -212,6 +222,28 @@ export function TicketList({ title, description, filter, actions, workflowRole }
                 <div><span className="text-muted-foreground">Updated:</span> <span className="font-medium">{selected.updatedAt}</span></div>
               </div>
               <div className="text-sm mb-6">{selected.description}</div>
+
+              {selected.attachments && selected.attachments.length > 0 && (
+                <div className="mb-6 space-y-2">
+                  <div className="font-semibold text-sm">Attachments</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selected.attachments.map((url, idx) => {
+                      const fileName = url.substring(url.indexOf("_") + 1);
+                      return (
+                        <a
+                          key={idx}
+                          href={`http://localhost:8000${url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 rounded-md border bg-muted/40 hover:bg-muted text-xs text-primary font-medium transition-colors"
+                        >
+                          <span className="truncate max-w-[220px]">{fileName}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {(selected.adminRemarks || selected.assetResolution || selected.supportResolution) && (
                 <div className="text-sm mb-6 p-3 bg-muted/40 rounded-md space-y-2">

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.middleware.logging import LoggingMiddleware
 from app.routers import (
@@ -9,6 +10,7 @@ from app.routers import (
     assignments, vendors, maintenance, audit_logs, 
     notifications, knowledge_base
 )
+import os
 import logging
 
 app = FastAPI(
@@ -18,6 +20,22 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+# Ensure static uploads folder exists and is mounted
+os.makedirs("static/uploads", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.on_event("startup")
+async def startup_event():
+    """Run safety migrations to auto-inject the attachments column if missing."""
+    from app.database import engine
+    from sqlalchemy import text
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachments JSONB;"))
+            print("DB Migration: Checked/injected attachments column in tickets table.")
+        except Exception as e:
+            print(f"DB Migration Error: {e}")
 
 # Enable CORS for frontend integration
 app.add_middleware(

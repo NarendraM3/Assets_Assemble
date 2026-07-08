@@ -47,7 +47,8 @@ class TicketService:
             "sla": sla,
             "assigned_role": "support",
             "timeline": timeline,
-            "audit_trail": audit_trail
+            "audit_trail": audit_trail,
+            "attachments": ticket_in.attachments
         }
         
         new_ticket = await ticket_repository.create(db, ticket_data)

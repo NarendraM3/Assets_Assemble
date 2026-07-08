@@ -63,6 +63,7 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   sla: "On Track" | "At Risk" | "Breached";
+  attachments?: string[];
   comments: { author: string; message: string; at: string }[];
   supportResolution?: string;
   adminRemarks?: string;

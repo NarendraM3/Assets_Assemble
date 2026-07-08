@@ -22,6 +22,7 @@ class TicketCreate(BaseModel):
     priority: str  # Low, Medium, High, Critical
     category: str
     asset_id: Optional[uuid.UUID] = None
+    attachments: Optional[List[str]] = None
 
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
@@ -70,6 +71,7 @@ class TicketResponse(BaseModel):
     assigned_role: Optional[str] = None
     timeline: Optional[List[Dict[str, Any]]] = None
     audit_trail: Optional[List[Dict[str, Any]]] = None
+    attachments: Optional[List[str]] = None
     comments: List[TicketCommentResponse] = []
     created_at: datetime
     updated_at: datetime

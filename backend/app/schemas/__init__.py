@@ -15,6 +15,7 @@ from app.schemas.audit_log import AuditLogResponse
 from app.schemas.notification import NotificationCreate, NotificationUpdate, NotificationResponse
 from app.schemas.knowledge_base import KnowledgeBaseResponse
 from app.schemas.dashboard import DashboardStats
+from app.schemas.user_profile import UserFullProfileResponse
 
 __all__ = [
     "ApiResponse",
@@ -52,4 +53,5 @@ __all__ = [
     "NotificationResponse",
     "KnowledgeBaseResponse",
     "DashboardStats",
+    "UserFullProfileResponse",
 ]

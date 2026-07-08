@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { getAuthHeaders } from "./auth";
-import type { 
-  Employee, Asset, Assignment, Ticket, Role, Vendor, Maintenance 
+import type {
+  Employee, Asset, Assignment, Ticket, Role, Vendor, Maintenance
 } from "@/data/mock";
 import { toast } from "sonner";
 
@@ -25,7 +25,8 @@ interface DataCtx {
   knowledgeBase: any[];
   loading: boolean;
   refreshData: () => Promise<void>;
-  createTicket: (ticket: Omit<Ticket, "id" | "status" | "createdAt" | "updatedAt" | "assignee" | "sla" | "comments" | "assignedRole" | "timeline" | "auditTrail">, actor: string) => Promise<Ticket>;
+  createTicket: (ticket: Omit<Ticket, "id" | "status" | "createdAt" | "updatedAt" | "assignee" | "sla" | "comments" | "assignedRole" | "timeline" | "auditTrail"> & { attachments?: string[] }, actor: string) => Promise<Ticket>;
+  uploadFiles: (files: FileList) => Promise<string[]>;
   acceptTicket: (ticketId: string, actor: string) => Promise<void>;
   updateTicketStatus: (ticketId: string, status: Ticket["status"], actor: string, role: Role, comment?: string) => Promise<void>;
   addTicketComment: (ticketId: string, actor: string, role: Role, message: string) => Promise<void>;
@@ -39,6 +40,8 @@ interface DataCtx {
   retireAsset: (id: string) => Promise<void>;
   verifyOnboardingAsset: (employeeId: string, approved: boolean, remarks: string, actor: string) => Promise<void>;
   completeOnboardingAllocation: (employeeId: string, assetId: string, remarks: string, actor: string) => Promise<void>;
+  fetchFullProfile: (userUuid: string) => Promise<any>;
+  fetchRecentEmployees: () => Promise<any[]>;
 }
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -53,7 +56,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
   const [knowledgeBase, setKnowledgeBase] = useState<any[]>([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
@@ -118,6 +121,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     assignedRole: t.assigned_role as any,
     timeline: t.timeline,
     auditTrail: t.audit_trail,
+    attachments: t.attachments || [],
     comments: (t.comments || []).map((c: any) => ({
       author: c.author_name,
       message: c.message,
@@ -143,7 +147,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const assetRes = await fetch("/api/assets?limit=2000", { headers });
       const assetData = await assetRes.json();
       const rawAssets = assetData.success ? assetData.data.items.map(mapAsset) : [];
-      
+
       // Resolve asset.assignedTo (which is UUID) to employee display_id (e.g. EMP-1000)
       const loadedAssets = rawAssets.map((asset: any) => {
         if (asset.assignedTo) {
@@ -171,12 +175,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const tktRes = await fetch("/api/tickets?limit=1000", { headers });
       const tktData = await tktRes.json();
       const rawTkts = tktData.success ? tktData.data.items.map((t: any) => mapTicket(t, assetData.data.items)) : [];
-      
+
       // Resolve ticket creator and assignee UUIDs to names
       const loadedTkts = rawTkts.map((t: any) => {
         const creator = loadedEmps.find((e: any) => e.uuid === t.createdBy);
         t.createdBy = creator ? creator.name : "System";
-        
+
         if (t.assignee) {
           const assignee = loadedEmps.find((e: any) => e.uuid === t.assignee);
           t.assignee = assignee ? assignee.name : null;
@@ -245,7 +249,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setVendors(loadedVendors);
       setMaintenance(loadedMaintenance);
       setKnowledgeBase(loadedKB);
-      
+
     } catch (error) {
       console.error("Error loading api data in contexts/data.tsx:", error);
     } finally {
@@ -264,10 +268,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const createTicket = async (ticketData: any, actor: string) => {
     // Translate asset display_id back to UUID if specified
-    const assetUuid = ticketData.assetId 
-      ? assets.find((a: any) => a.id === ticketData.assetId)?.uuid || null 
+    const assetUuid = ticketData.assetId
+      ? assets.find((a: any) => a.id === ticketData.assetId)?.uuid || null
       : null;
-      
+
     try {
       const response = await fetch("/api/tickets", {
         method: "POST",
@@ -280,12 +284,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           description: ticketData.description,
           priority: ticketData.priority,
           category: ticketData.category,
-          asset_id: assetUuid
+          asset_id: assetUuid,
+          attachments: ticketData.attachments || []
         }),
       });
       const result = await response.json();
       if (result.success && result.data) {
-        await refreshData();
+        refreshData();
         return result.data;
       } else {
         toast.error(result.message || "Failed to create ticket");
@@ -294,6 +299,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error(e);
       throw e;
+    }
+  };
+
+  const uploadFiles = async (files: FileList): Promise<string[]> => {
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
+    try {
+      const response = await fetch("/api/tickets/upload", {
+        method: "POST",
+        headers: {
+          Authorization: getAuthHeaders().Authorization || "",
+        },
+        body: formData,
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        toast.error(result.message || "Failed to upload files");
+        return [];
+      }
+    } catch (e) {
+      console.error("File upload error:", e);
+      toast.error("File upload failed due to network error");
+      return [];
     }
   };
 
@@ -469,7 +501,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success && result.data) {
-        await refreshData();
+        refreshData();
         return mapEmployee(result.data);
       } else {
         toast.error(result.message || "Failed to create employee");
@@ -492,7 +524,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success) {
-        await refreshData();
+        refreshData();
       } else {
         toast.error(result.message || "Failed to delete employee");
       }
@@ -506,7 +538,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const eUuid = employees.find((e: any) => e.id === employeeId)?.uuid;
     const aUuid = assets.find((a: any) => a.id === assetIds[0])?.uuid;
     if (!eUuid || !aUuid) return;
-    
+
     try {
       const response = await fetch("/api/assignments", {
         method: "POST",
@@ -522,7 +554,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success) {
-        await refreshData();
+        refreshData();
       } else {
         toast.error(result.message || "Failed to assign asset");
       }
@@ -554,7 +586,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success && result.data) {
-        await refreshData();
+        refreshData();
         return mapAsset(result.data);
       } else {
         toast.error(result.message || "Failed to create asset");
@@ -577,7 +609,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success) {
-        await refreshData();
+        refreshData();
       } else {
         toast.error(result.message || "Failed to retire asset");
       }
@@ -601,7 +633,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success) {
-        await refreshData();
+        refreshData();
       } else {
         toast.error(result.message || "Failed to verify onboarding");
       }
@@ -626,12 +658,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
       if (result.success) {
-        await refreshData();
+        refreshData();
       } else {
         toast.error(result.message || "Failed to allocate asset");
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+  const fetchFullProfile = async (userUuid: string) => {
+    try {
+      const response = await fetch(`/api/users/${userUuid}/full-profile`, {
+        headers: getAuthHeaders(),
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        return result.data;
+      }
+      return null;
+    } catch (e) {
+      console.error("Failed to fetch full employee profile:", e);
+      return null;
+    }
+  };
+
+  const fetchRecentEmployees = async () => {
+    try {
+      const response = await fetch("/api/users/recent", {
+        headers: getAuthHeaders(),
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        return result.data.map(mapEmployee);
+      }
+      return [];
+    } catch (e) {
+      console.error("Failed to fetch recent employees:", e);
+      return [];
     }
   };
 
@@ -653,6 +716,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       loading,
       refreshData,
       createTicket,
+      uploadFiles,
       acceptTicket,
       updateTicketStatus,
       addTicketComment,
@@ -665,7 +729,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addAsset,
       retireAsset,
       verifyOnboardingAsset,
-      completeOnboardingAllocation
+      completeOnboardingAllocation,
+      fetchFullProfile,
+      fetchRecentEmployees
     }}>
       {children}
     </Ctx.Provider>

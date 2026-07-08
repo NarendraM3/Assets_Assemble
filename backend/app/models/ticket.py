@@ -31,6 +31,7 @@ class Ticket(Base, TimestampMixin):
     assigned_role: Mapped[str] = mapped_column(String, nullable=True)  # Role of assignee needed (e.g. support, admin, asset_manager)
     timeline: Mapped[list] = mapped_column(JSON, nullable=True)  # History timeline events
     audit_trail: Mapped[list] = mapped_column(JSON, nullable=True)  # Security/status changes audit
+    attachments: Mapped[list] = mapped_column(JSON, nullable=True)  # File attachment URLs
     
     # Relationships
     creator = relationship(

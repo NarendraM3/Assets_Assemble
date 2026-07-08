@@ -190,6 +190,7 @@ class AssetService:
         user.allocation_history = history
         db.add(user)
         await db.flush()
+        await db.refresh(user)
         
         # Log to audits
         await audit_log_repository.create(db, {
@@ -258,7 +259,6 @@ class AssetService:
             "status": "Active"
         })
         
-        # 4. Log to audits
         await audit_log_repository.create(db, {
             "display_id": f"LOG-C{secrets.randbelow(1000)}",
             "action": "Asset Allocation Completed",
@@ -268,6 +268,7 @@ class AssetService:
             "ip": "127.0.0.1"
         })
         
+        await db.refresh(user)
         return user
 
 asset_service = AssetService()

@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, Save } from "lucide-react";
+import { Upload, Save, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,10 +31,14 @@ const schema = z.object({
 });
 type FormV = z.infer<typeof schema>;
 
+import { useState } from "react";
+
 function RaiseTicket() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const { assets, createTicket } = useData();
+  const { assets, createTicket, uploadFiles } = useData();
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormV>({
     resolver: zodResolver(schema),
@@ -42,20 +47,47 @@ function RaiseTicket() {
   const priority = watch("priority");
   const category = watch("category");
 
-  const onSubmit = (v: FormV) => {
-    const ticket = createTicket({
-      title: v.title,
-      description: v.description,
-      priority: v.priority,
-      category: v.category,
-      assetId: v.assetId || null,
-      createdBy: user?.name || "Employee User",
-    }, user?.name || "Employee User");
-    toast.success("Ticket submitted - we'll get back to you shortly", {
-      description: `${ticket.id} - Priority: ${v.priority} - Category: ${v.category}`,
-    });
-    reset();
-    nav({ to: "/my-tickets" });
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setUploading(true);
+    try {
+      const urls = await uploadFiles(e.target.files);
+      if (urls.length > 0) {
+        setAttachments(prev => [...prev, ...urls]);
+        toast.success(`${urls.length} attachment(s) uploaded successfully`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = async (v: FormV) => {
+    try {
+      const ticket = await createTicket({
+        title: v.title,
+        description: v.description,
+        priority: v.priority,
+        category: v.category,
+        assetId: v.assetId || null,
+        createdBy: user?.name || "Employee User",
+        attachments,
+      }, user?.name || "Employee User");
+      
+      toast.success("Ticket submitted - we'll get back to you shortly", {
+        description: `Priority: ${v.priority} - Category: ${v.category}`,
+      });
+      reset();
+      setAttachments([]);
+      nav({ to: "/my-tickets" });
+    } catch (err) {
+      // Error is handled inside createTicket context helper
+    }
   };
   const saveDraft = () => toast.info("Draft saved locally");
 
@@ -107,11 +139,33 @@ function RaiseTicket() {
             </div>
             <div>
               <Label>Attachments</Label>
-              <label className="mt-1.5 flex items-center justify-center gap-2 border-2 border-dashed rounded-md p-6 text-sm text-muted-foreground hover:border-primary/40 cursor-pointer transition-colors">
+              <label className={cn(
+                "mt-1.5 flex items-center justify-center gap-2 border-2 border-dashed rounded-md p-6 text-sm text-muted-foreground hover:border-primary/40 cursor-pointer transition-colors",
+                uploading && "opacity-50 pointer-events-none"
+              )}>
                 <Upload className="h-4 w-4" />
-                <span>Drop files or click to upload (screenshots, logs)</span>
-                <input type="file" multiple className="hidden" />
+                <span>{uploading ? "Uploading files..." : "Drop files or click to upload (screenshots, logs)"}</span>
+                <input type="file" multiple className="hidden" onChange={handleFileChange} disabled={uploading} />
               </label>
+
+              {attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">Uploaded Attachments ({attachments.length})</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {attachments.map((url, idx) => {
+                      const fileName = url.substring(url.indexOf("_") + 1);
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-md border bg-muted/40 text-xs">
+                          <span className="font-medium truncate max-w-[220px]">{fileName}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => removeAttachment(idx)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
           <div className="flex items-center justify-end gap-2">

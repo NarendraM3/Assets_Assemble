@@ -230,3 +230,33 @@ async def resolve_asset_action(
         message="Inventory actions recorded. Ticket resolved.",
         data=TicketResponse.model_validate(ticket)
     )
+
+from fastapi import UploadFile, File
+import shutil
+import os
+
+@router.post("/upload", response_model=ApiResponse[List[str]])
+async def upload_attachments(
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload ticket attachments (screenshots, logs)."""
+    uploaded_urls = []
+    upload_dir = "static/uploads"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    for file in files:
+        safe_filename = "".join(c for c in file.filename if c.isalnum() or c in "._-")
+        unique_filename = f"{uuid.uuid4().hex[:8]}_{safe_filename}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        uploaded_urls.append(f"/static/uploads/{unique_filename}")
+        
+    return ApiResponse(
+        success=True,
+        message="Files uploaded successfully",
+        data=uploaded_urls
+    )

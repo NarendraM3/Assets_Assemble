@@ -164,3 +164,36 @@ async def toggle_active(
         message="Employee status toggled",
         data=UserResponse.model_validate(user)
     )
+
+from app.schemas.user_profile import UserFullProfileResponse
+from typing import List
+
+@router.get("/recent", response_model=ApiResponse[List[UserResponse]])
+async def get_recent_employees(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(RoleChecker(["admin"]))
+):
+    """Retrieve recently joined employees. Admin-only."""
+    users = await user_service.get_recent_users(db, limit=10)
+    return ApiResponse(
+        success=True,
+        message="Recent employees retrieved",
+        data=[UserResponse.model_validate(u) for u in users]
+    )
+
+@router.get("/{user_id}/full-profile", response_model=ApiResponse[UserFullProfileResponse])
+async def get_employee_full_profile(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get full profile details for an employee. Admins can view anyone; others can view only themselves."""
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        
+    profile = await user_service.get_full_profile(db, user_id)
+    return ApiResponse(
+        success=True,
+        message="Full profile data retrieved successfully",
+        data=profile
+    )

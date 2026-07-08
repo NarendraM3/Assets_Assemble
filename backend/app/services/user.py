@@ -236,4 +236,55 @@ class UserService:
             "ip": "127.0.0.1"
         })
 
+    async def get_recent_users(self, db: AsyncSession, limit: int = 10) -> List[User]:
+        """Fetch recently joined employee accounts."""
+        from sqlalchemy import select
+        query = select(User).where(User.role == "employee").order_by(User.created_at.desc()).limit(limit)
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_full_profile(self, db: AsyncSession, user_id: uuid.UUID) -> dict:
+        """Query and return a unified profile dictionary for a specific user."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from app.models.asset import Asset
+        from app.models.ticket import Ticket
+        from app.models.audit_log import AuditLog
+
+        user = await user_repository.get_raw(db, user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+            
+        # 1. Fetch assigned assets
+        asset_query = select(Asset).where(Asset.assigned_to_id == user_id, Asset.status == "Assigned")
+        asset_result = await db.execute(asset_query)
+        assigned_assets = list(asset_result.scalars().all())
+        
+        # 2. Fetch tickets (created by or assigned to this user)
+        ticket_query = (
+            select(Ticket)
+            .where((Ticket.created_by_id == user_id) | (Ticket.assignee_id == user_id))
+            .options(selectinload(Ticket.comments))
+            .order_by(Ticket.created_at.desc())
+        )
+        ticket_result = await db.execute(ticket_query)
+        tickets = list(ticket_result.scalars().all())
+        
+        # 3. Fetch last login log entry
+        login_query = (
+            select(AuditLog)
+            .where(AuditLog.action == "User Login", AuditLog.target == str(user_id))
+            .order_by(AuditLog.created_at.desc())
+            .limit(1)
+        )
+        login_result = await db.execute(login_query)
+        last_login = login_result.scalars().first()
+        
+        return {
+            "user": user,
+            "assigned_assets": assigned_assets,
+            "tickets": tickets,
+            "last_login": last_login
+        }
+
 user_service = UserService()
