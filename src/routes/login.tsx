@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,8 +16,8 @@ export const Route = createFileRoute("/login")({
 });
 
 const schema = z.object({
-  email: z.string().trim().email("Enter a valid email"),
-  password: z.string().min(6, "At least 6 characters"),
+  email: z.string().trim().min(1, "Enter a username or email"),
+  password: z.string().min(1, "Enter your password"),
 });
 type FormV = z.infer<typeof schema>;
 
@@ -27,6 +28,12 @@ function LoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("itsm.token")) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [navigate]);
 
   const onSubmit = async (v: FormV) => {
     try {

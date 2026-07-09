@@ -1,35 +1,38 @@
 from typing import Optional
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from boto3.dynamodb.conditions import Attr
 from app.models.asset import Asset
-from app.repositories.base import BaseRepository
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import ASSETS_TABLE
 
-class AssetRepository(BaseRepository[Asset]):
+
+class AssetRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(Asset)
+        super().__init__(Asset, ASSETS_TABLE)
 
-    async def get_by_serial(self, db: AsyncSession, serial: str) -> Optional[Asset]:
-        """Fetch active asset by serial number."""
-        query = select(Asset).where(Asset.serial == serial, Asset.is_active == True)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_by_serial(self, serial: str) -> Optional[Asset]:
+        response = await self.table.scan(
+            FilterExpression=Attr("serial").eq(serial) & Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        return Asset(**items[0]) if items else None
 
-    async def get_by_display_id(self, db: AsyncSession, display_id: str) -> Optional[Asset]:
-        """Fetch active asset by display/asset ID."""
-        query = select(Asset).where(Asset.display_id == display_id, Asset.is_active == True)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_by_display_id(self, display_id: str) -> Optional[Asset]:
+        response = await self.table.scan(
+            FilterExpression=Attr("display_id").eq(display_id) & Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        return Asset(**items[0]) if items else None
 
-    async def count_total(self, db: AsyncSession) -> int:
-        """Count all assets (active and inactive) for display ID generation."""
-        query = select(func.count(Asset.id))
-        result = await db.execute(query)
-        return result.scalar() or 0
+    async def count_total(self) -> int:
+        response = await self.table.scan(Select="COUNT")
+        return response.get("Count", 0)
 
-    async def count_by_status(self, db: AsyncSession, status: str) -> int:
-        """Count active assets by status (e.g. Assigned, Available)."""
-        query = select(func.count(Asset.id)).where(Asset.status == status, Asset.is_active == True)
-        result = await db.execute(query)
-        return result.scalar() or 0
+    async def count_by_status(self, status: str) -> int:
+        response = await self.table.scan(
+            FilterExpression=Attr("status").eq(status) & Attr("is_active").eq(True),
+            Select="COUNT",
+        )
+        return response.get("Count", 0)
+
 
 asset_repository = AssetRepository()

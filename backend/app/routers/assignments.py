@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, get_current_user, RoleChecker
 from app.models.user import User
 from app.services.asset import asset_service
@@ -7,32 +6,31 @@ from app.repositories.assignment import assignment_repository
 from app.schemas.base import ApiResponse, PaginatedData
 from app.schemas.assignment import AssignmentResponse, AssignmentCreate
 from typing import Optional
-import uuid
 
 router = APIRouter(prefix="/assignments", tags=["Assignments"])
 
+
 @router.get("", response_model=ApiResponse[PaginatedData[AssignmentResponse]])
 async def list_assignments(
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(15, ge=1, le=10000),
     sort_by: Optional[str] = Query(None),
     sort_desc: bool = Query(False),
-    status_filter: Optional[str] = Query(None, alias="status")
+    status_filter: Optional[str] = Query(None, alias="status"),
 ):
-    """Retrieve historical/active assignments."""
     filters = {}
     if status_filter:
         filters["status"] = status_filter
-        
+
     items, total = await assignment_repository.get_multi_paginated(
-        db, page=page, limit=limit, sort_by=sort_by, sort_desc=sort_desc,
-        filters=filters
+        page=page, limit=limit, sort_by=sort_by, sort_desc=sort_desc,
+        filters=filters,
     )
-    
+
     schemas = [AssignmentResponse.model_validate(item) for item in items]
-    
+
     return ApiResponse(
         success=True,
         message="Assignments listed successfully",
@@ -40,34 +38,34 @@ async def list_assignments(
             items=schemas,
             total=total,
             page=page,
-            limit=limit
-        )
+            limit=limit,
+        ),
     )
+
 
 @router.post("", response_model=ApiResponse[AssignmentResponse])
 async def create_assignment(
     assign_in: AssignmentCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "support", "asset_manager"]))
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "support", "asset_manager"])),
 ):
-    """Create an asset allocation record. Support/Asset Manager/Admin only."""
-    asg = await asset_service.assign_asset(db, assign_in, current_user.name)
+    asg = await asset_service.assign_asset(assign_in, current_user.name)
     return ApiResponse(
         success=True,
         message="Asset assigned successfully",
-        data=AssignmentResponse.model_validate(asg)
+        data=AssignmentResponse.model_validate(asg),
     )
+
 
 @router.post("/{assignment_id}/return", response_model=ApiResponse[AssignmentResponse])
 async def return_asset(
-    assignment_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "support", "asset_manager"]))
+    assignment_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "support", "asset_manager"])),
 ):
-    """Record an asset return. Support/Asset Manager/Admin only."""
-    asg = await asset_service.return_asset(db, assignment_id, current_user.name)
+    asg = await asset_service.return_asset(assignment_id, current_user.name)
     return ApiResponse(
         success=True,
         message="Asset return logged successfully",
-        data=AssignmentResponse.model_validate(asg)
+        data=AssignmentResponse.model_validate(asg),
     )

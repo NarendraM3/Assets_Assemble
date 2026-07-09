@@ -1,6 +1,6 @@
 # Acme ITSM & Asset Management Enterprise System
 
-This codebase represents a React + FastAPI + PostgreSQL Enterprise IT Service Management (ITSM) and Asset Management Platform. It enables system administrators to manage employee accounts, support engineers to resolve hardware tickets, asset managers to coordinate inventory, and employees to track their assigned gear.
+This codebase represents a React + FastAPI + DynamoDB Enterprise IT Service Management (ITSM) and Asset Management Platform. It enables system administrators to manage employee accounts, support engineers to resolve hardware tickets, asset managers to coordinate inventory, and employees to track their assigned gear.
 
 ---
 
@@ -18,8 +18,7 @@ This codebase represents a React + FastAPI + PostgreSQL Enterprise IT Service Ma
 
 ### 2. File Uploads & Attachments for Support Tickets
 * **Static File Serving**: Mounted local directories under the `/static` path in FastAPI ([main.py](file:///c:/Users/vatsu/Desktop/ui/backend/app/main.py)) to serve uploaded ticket files securely.
-* **Database Attachments Field**: Modified the `Ticket` database model ([ticket.py](file:///c:/Users/vatsu/Desktop/ui/backend/app/models/ticket.py)) and Pydantic schemas to store attachments as a JSON array.
-* **Auto DDL Startup Checks**: Implemented an automated startup hook in [main.py](file:///c:/Users/vatsu/Desktop/ui/backend/app/main.py) to check and inject the `attachments` column directly into PostgreSQL if it is missing, eliminating manual schema migration issues.
+* **Database Attachments Field**: Modified the `Ticket` model and Pydantic schemas to store attachments as a JSON array.
 * **File Upload Endpoint (`POST /api/tickets/upload`)**: Added a multipart upload handler in the tickets router ([tickets.py](file:///c:/Users/vatsu/Desktop/ui/backend/app/routers/tickets.py)) to securely write files, append UUID hashes to prevent naming collisions, and return the server paths.
 * **Frontend Drag & Drop UI ([_app.raise-ticket.tsx](file:///c:/Users/vatsu/Desktop/ui/src/routes/_app.raise-ticket.tsx))**:
   * Created a React drop/click file input that uploads attachments to the backend instantly.
@@ -45,7 +44,7 @@ This codebase represents a React + FastAPI + PostgreSQL Enterprise IT Service Ma
 * Modified [TicketList.tsx](file:///c:/Users/vatsu/Desktop/ui/src/features/tickets/TicketList.tsx) to hide the SLA column when standard employees view the ticket list, preventing unnecessary clutter, while maintaining full visibility of SLAs for Support Engineers, Asset Managers, and Administrators.
 
 ### 6. Critical Bug Fixes
-* **Lazy-Loading Transaction Blocks (`MissingGreenlet` Exception)**: Resolved SQLAlchemy transactional lazy-loading crashes by introducing explicit `await db.refresh(user)` refreshes in `verify_onboarding` and `complete_onboarding` service methods in `asset.py`.
+* **Lazy-Loading Transaction Blocks (`MissingGreenlet` Exception)**: Resolved transactional lazy-loading crashes by introducing explicit refresh operations in `verify_onboarding` and `complete_onboarding` service methods in `asset.py`.
 * **Hardware Asset Filtering**: Fixed a schema lookup mismatch in `_app.my-assets.tsx`. Filter queries now match the asset's assigned ID with the frontend display string ID (`EMP-1001` format) rather than the database UUID.
 
 ---
@@ -53,9 +52,9 @@ This codebase represents a React + FastAPI + PostgreSQL Enterprise IT Service Ma
 ## Application Setup & Local Execution
 
 ### 1. Requirements
-* PostgreSQL database named `Asset Management`
 * Node.js (v18+)
 * Python (v3.10+)
+* AWS DynamoDB (local via DynamoDB Local or AWS account)
 
 ### 2. Backend Installation (FastAPI)
 1. Navigate to the backend directory:
@@ -71,12 +70,13 @@ This codebase represents a React + FastAPI + PostgreSQL Enterprise IT Service Ma
    ```bash
    pip install -r requirements.txt
    ```
-4. Verify your `.env` contains your correct database URL and SMTP keys:
+4. Verify your `.env` contains your DynamoDB configuration:
    ```ini
-   DATABASE_URL=postgresql+asyncpg://postgres:<password>@localhost:5432/Asset Management
+   AWS_REGION=us-east-1
+   DYNAMODB_ENDPOINT=http://localhost:8000
    SECRET_KEY=91f0a2569da598b9eb5c43d3df05e04df714856f6ba3a8b4183861214c7709b1
    ```
-5. Run the backend development server (automatically runs migrations on start):
+5. Run the backend development server:
    ```bash
    uvicorn app.main:app --reload
    ```

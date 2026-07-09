@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Role } from "@/data/mock";
 import { toast } from "sonner";
 
@@ -23,110 +23,81 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const API_BASE = "http://localhost:8000/api";
+const MOCK_USER: AuthUser = {
+  id: "usr_mock_admin_001",
+  display_id: "ADM-001",
+  name: "Admin User",
+  email: "admin@acmecorp.com",
+  role: "admin",
+  avatar: "AU",
+  must_change_password: false,
+};
+
+const FAKE_TOKEN = "mock_jwt_token_abc123";
 
 export function getAuthHeaders() {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("itsm.token");
-  return token ? { "Authorization": `Bearer ${token}` } : {};
+  return { "Authorization": `Bearer ${FAKE_TOKEN}` };
+}
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("itsm.token");
+}
+
+function setToken(token: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("itsm.token", token);
+}
+
+function removeToken() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("itsm.token");
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = async () => {
-    const token = localStorage.getItem("itsm.token");
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: getAuthHeaders(),
-      });
-      const result = await response.json();
-      if (result.success && result.data) {
-        setUser(result.data);
-      } else {
-        // Token invalid or expired
-        logout();
-      }
-    } catch (error) {
-      console.error("Failed to load user profile:", error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    refreshProfile();
+    const stored = getToken();
+    if (stored) {
+      setUser(MOCK_USER);
+    }
+    setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        const { access_token, user: profile } = result.data;
-        localStorage.setItem("itsm.token", access_token);
-        setUser(profile);
-        toast.success(`Welcome back, ${profile.name}`);
-      } else {
-        const errorMsg = result.message || "Invalid credentials";
-        toast.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-    } catch (error: any) {
-      console.error("Login failed:", error);
-      throw error;
+  const refreshProfile = async () => {
+    const stored = getToken();
+    if (stored) {
+      setUser(MOCK_USER);
+    } else {
+      setUser(null);
     }
+    setLoading(false);
+  };
+
+  const login = async (_email: string, _password: string) => {
+    setToken(FAKE_TOKEN);
+    setUser(MOCK_USER);
+    toast.success(`Welcome back, ${MOCK_USER.name}`);
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("itsm.token");
+    removeToken();
     toast.info("Signed out of session");
   };
 
-  const forceChangePassword = async (password: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/force-change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({ new_password: password }),
-      });
-      
-      const result = await response.json();
-      if (result.success) {
-        toast.success("Password changed successfully!");
-        if (user) {
-          setUser({ ...user, must_change_password: false });
-        }
-      } else {
-        toast.error(result.message || "Failed to update password");
-      }
-    } catch (error) {
-      console.error("Password update error:", error);
-      toast.error("An error occurred during password change.");
+  const forceChangePassword = async (_password: string) => {
+    if (user) {
+      setUser({ ...user, must_change_password: false });
     }
+    toast.success("Password changed successfully!");
   };
 
   return (
     <Ctx.Provider value={{ user, loading, login, logout, forceChangePassword, refreshProfile }}>
-      {!loading && children}
+      {children}
     </Ctx.Provider>
   );
 }

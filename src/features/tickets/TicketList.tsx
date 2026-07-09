@@ -232,7 +232,7 @@ export function TicketList({ title, description, filter, actions, workflowRole }
                       return (
                         <a
                           key={idx}
-                          href={`http://localhost:8000${url}`}
+                          href={url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 p-2 rounded-md border bg-muted/40 hover:bg-muted text-xs text-primary font-medium transition-colors"

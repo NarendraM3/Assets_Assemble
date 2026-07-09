@@ -1,57 +1,71 @@
 from typing import Optional, List
-from sqlalchemy import select, func, or_
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from boto3.dynamodb.conditions import Attr
 from app.models.ticket import Ticket, TicketComment
-from app.repositories.base import BaseRepository
-import uuid
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import TICKETS_TABLE, TICKET_COMMENTS_TABLE
+from app.database import generate_id, utcnow_str
 
-class TicketRepository(BaseRepository[Ticket]):
+
+class TicketRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(Ticket)
+        super().__init__(Ticket, TICKETS_TABLE)
 
-    async def get_by_display_id(self, db: AsyncSession, display_id: str) -> Optional[Ticket]:
-        """Fetch active ticket by its display ID with loaded comments."""
-        query = (
-            select(Ticket)
-            .where(Ticket.display_id == display_id, Ticket.is_active == True)
-            .options(selectinload(Ticket.comments))
+    async def get_by_display_id(self, display_id: str) -> Optional[Ticket]:
+        response = await self.table.scan(
+            FilterExpression=Attr("display_id").eq(display_id) & Attr("is_active").eq(True)
         )
-        result = await db.execute(query)
-        return result.scalars().first()
+        items = response.get("Items", [])
+        if not items:
+            return None
+        ticket = Ticket(**items[0])
+        ticket.comments = await self._get_comments(ticket.id)
+        return ticket
 
-    async def get_with_comments(self, db: AsyncSession, ticket_id: uuid.UUID) -> Optional[Ticket]:
-        """Fetch active ticket by UUID with loaded comments."""
-        query = (
-            select(Ticket)
-            .where(Ticket.id == ticket_id, Ticket.is_active == True)
-            .options(selectinload(Ticket.comments))
-        )
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_with_comments(self, ticket_id: str) -> Optional[Ticket]:
+        item = await self.get_raw(ticket_id)
+        if not item:
+            return None
+        if not item.is_active:
+            return None
+        item.comments = await self._get_comments(ticket_id)
+        return item
 
-    async def create_comment(self, db: AsyncSession, ticket_id: uuid.UUID, author_name: str, message: str) -> TicketComment:
-        """Create a comment on a ticket."""
-        comment = TicketComment(
-            ticket_id=ticket_id,
-            author_name=author_name,
-            message=message
+    async def _get_comments(self, ticket_id: str) -> List[TicketComment]:
+        comments_table = get_table_instance(TICKET_COMMENTS_TABLE)
+        response = await comments_table.scan(
+            FilterExpression=Attr("ticket_id").eq(ticket_id) & Attr("is_active").eq(True)
         )
-        db.add(comment)
-        await db.flush()
-        return comment
+        items = response.get("Items", [])
+        items.sort(key=lambda x: x.get("created_at", ""))
+        return [TicketComment(**c) for c in items]
 
-    async def count_pending(self, db: AsyncSession) -> int:
-        """Count active tickets that are not resolved or closed."""
-        query = (
-            select(func.count(Ticket.id))
-            .where(
-                Ticket.is_active == True,
-                Ticket.status != "Resolved",
-                Ticket.status != "Closed"
-            )
+    async def create_comment(self, ticket_id: str, author_name: str, message: str) -> TicketComment:
+        comment_table = get_table_instance(TICKET_COMMENTS_TABLE)
+        data = {
+            "id": generate_id(),
+            "ticket_id": ticket_id,
+            "author_name": author_name,
+            "message": message,
+            "created_at": utcnow_str(),
+            "updated_at": utcnow_str(),
+            "is_active": True,
+        }
+        await comment_table.put_item(Item=data)
+        return TicketComment(**data)
+
+    async def count_pending(self) -> int:
+        response = await self.table.scan(
+            FilterExpression=Attr("is_active").eq(True)
+            & Attr("status").ne("Resolved")
+            & Attr("status").ne("Closed"),
+            Select="COUNT",
         )
-        result = await db.execute(query)
-        return result.scalar() or 0
+        return response.get("Count", 0)
+
 
 ticket_repository = TicketRepository()
+
+
+def get_table_instance(name: str):
+    from app.dynamodb import get_table
+    return get_table(name)

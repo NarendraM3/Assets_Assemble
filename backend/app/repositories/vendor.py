@@ -1,16 +1,20 @@
 from typing import Optional
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from boto3.dynamodb.conditions import Attr
 from app.models.vendor import Vendor
-from app.repositories.base import BaseRepository
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import VENDORS_TABLE
 
-class VendorRepository(BaseRepository[Vendor]):
+
+class VendorRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(Vendor)
+        super().__init__(Vendor, VENDORS_TABLE)
 
-    async def get_by_display_id(self, db: AsyncSession, display_id: str) -> Optional[Vendor]:
-        query = select(Vendor).where(Vendor.display_id == display_id, Vendor.is_active == True)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_by_display_id(self, display_id: str) -> Optional[Vendor]:
+        response = await self.table.scan(
+            FilterExpression=Attr("display_id").eq(display_id) & Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        return Vendor(**items[0]) if items else None
+
 
 vendor_repository = VendorRepository()

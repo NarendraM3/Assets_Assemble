@@ -1,17 +1,21 @@
 from typing import List
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from boto3.dynamodb.conditions import Attr
 from app.models.audit_log import AuditLog
-from app.repositories.base import BaseRepository
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import AUDIT_LOGS_TABLE
 
-class AuditLogRepository(BaseRepository[AuditLog]):
+
+class AuditLogRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(AuditLog)
+        super().__init__(AuditLog, AUDIT_LOGS_TABLE)
 
-    async def get_recent(self, db: AsyncSession, limit: int = 5) -> List[AuditLog]:
-        """Fetch the most recent audit log entries."""
-        query = select(AuditLog).where(AuditLog.is_active == True).order_by(AuditLog.created_at.desc()).limit(limit)
-        result = await db.execute(query)
-        return list(result.scalars().all())
+    async def get_recent(self, limit: int = 5) -> List[AuditLog]:
+        response = await self.table.scan(
+            FilterExpression=Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return [AuditLog(**item) for item in items[:limit]]
+
 
 audit_log_repository = AuditLogRepository()

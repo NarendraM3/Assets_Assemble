@@ -1,38 +1,37 @@
 from typing import List, Optional
-from sqlalchemy import select, update, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from boto3.dynamodb.conditions import Attr
 from app.models.notification import Notification
-from app.repositories.base import BaseRepository
-import uuid
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import NOTIFICATIONS_TABLE
 
-class NotificationRepository(BaseRepository[Notification]):
+
+class NotificationRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(Notification)
+        super().__init__(Notification, NOTIFICATIONS_TABLE)
 
-    async def get_by_user(self, db: AsyncSession, user_id: uuid.UUID) -> List[Notification]:
-        """Fetch notifications scoped to user or global ones, ordered by newest."""
-        query = (
-            select(Notification)
-            .where(
-                Notification.is_active == True,
-                or_(Notification.user_id == user_id, Notification.user_id.is_(None))
-            )
-            .order_by(Notification.created_at.desc())
+    async def get_by_user(self, user_id: str) -> List[Notification]:
+        response = await self.table.scan(
+            FilterExpression=Attr("is_active").eq(True)
+            & (Attr("user_id").eq(user_id) | Attr("user_id").not_exists())
         )
-        result = await db.execute(query)
-        return list(result.scalars().all())
+        items = response.get("Items", [])
+        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return [Notification(**item) for item in items]
 
-    async def mark_all_read(self, db: AsyncSession, user_id: uuid.UUID) -> None:
-        """Mark all notifications as read for a user."""
-        query = (
-            update(Notification)
-            .where(
-                Notification.is_active == True,
-                or_(Notification.user_id == user_id, Notification.user_id.is_(None)),
-                Notification.unread == True
-            )
-            .values(unread=False)
+    async def mark_all_read(self, user_id: str) -> None:
+        response = await self.table.scan(
+            FilterExpression=Attr("is_active").eq(True)
+            & (Attr("user_id").eq(user_id) | Attr("user_id").not_exists())
+            & Attr("unread").eq(True)
         )
-        await db.execute(query)
+        items = response.get("Items", [])
+        for item in items:
+            await self.table.update_item(
+                Key={"id": item["id"]},
+                UpdateExpression="SET #unread = :val",
+                ExpressionAttributeNames={"#unread": "unread"},
+                ExpressionAttributeValues={":val": False},
+            )
+
 
 notification_repository = NotificationRepository()

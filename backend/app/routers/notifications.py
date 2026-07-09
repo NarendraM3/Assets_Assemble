@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, get_current_user
 from app.models.user import User
 from app.repositories.notification import notification_repository
@@ -9,28 +8,28 @@ from typing import List
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
+
 @router.get("", response_model=ApiResponse[List[NotificationResponse]])
 async def list_notifications(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """Retrieve notifications scoped to the logged-in user or global."""
-    items = await notification_repository.get_by_user(db, current_user.id)
+    items = await notification_repository.get_by_user(str(current_user.id))
     schemas = [NotificationResponse.model_validate(item) for item in items]
     return ApiResponse(
         success=True,
         message="Notifications retrieved",
-        data=schemas
+        data=schemas,
     )
+
 
 @router.post("/mark-read", response_model=ApiResponse[None])
 async def mark_all_as_read(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """Mark all unread notifications as read for current user."""
-    await notification_repository.mark_all_read(db, current_user.id)
+    await notification_repository.mark_all_read(str(current_user.id))
     return ApiResponse(
         success=True,
-        message="All notifications marked as read"
+        message="All notifications marked as read",
     )

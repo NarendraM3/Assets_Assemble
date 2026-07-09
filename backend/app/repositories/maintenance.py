@@ -1,16 +1,20 @@
 from typing import Optional
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from boto3.dynamodb.conditions import Attr
 from app.models.maintenance import Maintenance
-from app.repositories.base import BaseRepository
+from app.repositories.base import BaseDynamoRepository
+from app.dynamodb import MAINTENANCE_TABLE
 
-class MaintenanceRepository(BaseRepository[Maintenance]):
+
+class MaintenanceRepository(BaseDynamoRepository):
     def __init__(self):
-        super().__init__(Maintenance)
+        super().__init__(Maintenance, MAINTENANCE_TABLE)
 
-    async def get_by_display_id(self, db: AsyncSession, display_id: str) -> Optional[Maintenance]:
-        query = select(Maintenance).where(Maintenance.display_id == display_id, Maintenance.is_active == True)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_by_display_id(self, display_id: str) -> Optional[Maintenance]:
+        response = await self.table.scan(
+            FilterExpression=Attr("display_id").eq(display_id) & Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        return Maintenance(**items[0]) if items else None
+
 
 maintenance_repository = MaintenanceRepository()

@@ -1,4 +1,3 @@
-from app.database import Base
 from app.models.user import User
 from app.models.asset import Asset
 from app.models.ticket import Ticket, TicketComment
@@ -10,7 +9,6 @@ from app.models.notification import Notification
 from app.models.knowledge_base import KnowledgeBase
 
 __all__ = [
-    "Base",
     "User",
     "Asset",
     "Ticket",

@@ -1,109 +1,103 @@
-import uuid
-from typing import Generic, TypeVar, Optional, Type, Any, List, Tuple
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
-from app.database import Base
+from typing import Optional, List, Tuple
+from boto3.dynamodb.conditions import Attr
+from app.dynamodb import get_table
 
-ModelType = TypeVar("ModelType", bound=Base)
 
-class BaseRepository(Generic[ModelType]):
-    """Generic repository providing common database operations."""
-    
-    def __init__(self, model: Type[ModelType]):
-        self.model = model
+class BaseDynamoRepository:
+    def __init__(self, model_class, table_name: str):
+        self.model_class = model_class
+        self.table = get_table(table_name)
 
-    async def get(self, db: AsyncSession, id: uuid.UUID) -> Optional[ModelType]:
-        """Fetch active record by UUID."""
-        query = select(self.model).where(self.model.id == id, self.model.is_active == True)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get(self, item_id: str) -> Optional:
+        response = await self.table.get_item(Key={"id": item_id})
+        item = response.get("Item")
+        if item and item.get("is_active", True):
+            return self.model_class(**item)
+        return None
 
-    async def get_raw(self, db: AsyncSession, id: uuid.UUID) -> Optional[ModelType]:
-        """Fetch raw record by UUID regardless of activity status."""
-        query = select(self.model).where(self.model.id == id)
-        result = await db.execute(query)
-        return result.scalars().first()
+    async def get_raw(self, item_id: str) -> Optional:
+        response = await self.table.get_item(Key={"id": item_id})
+        item = response.get("Item")
+        if item:
+            return self.model_class(**item)
+        return None
 
-    async def get_all(self, db: AsyncSession) -> List[ModelType]:
-        """Fetch all active records."""
-        query = select(self.model).where(self.model.is_active == True)
-        result = await db.execute(query)
-        return list(result.scalars().all())
+    async def get_all(self) -> List:
+        response = await self.table.scan(
+            FilterExpression=Attr("is_active").eq(True)
+        )
+        items = response.get("Items", [])
+        return [self.model_class(**item) for item in items]
 
-    async def create(self, db: AsyncSession, obj_in: dict) -> ModelType:
-        """Create a new database entry."""
-        db_obj = self.model(**obj_in)
-        db.add(db_obj)
-        await db.flush()
-        await db.refresh(db_obj)
-        return db_obj
+    async def create(self, data: dict):
+        await self.table.put_item(Item=data)
+        return self.model_class(**data)
 
-    async def update(self, db: AsyncSession, db_obj: ModelType, obj_in: dict) -> ModelType:
-        """Update an existing database entry."""
-        for field, value in obj_in.items():
-            if hasattr(db_obj, field):
-                setattr(db_obj, field, value)
-        db.add(db_obj)
-        await db.flush()
-        await db.refresh(db_obj)
-        return db_obj
+    async def update(self, item_id: str, data: dict):
+        if not data:
+            return await self.get_raw(item_id)
+        update_expr = "SET "
+        expr_attr_values = {}
+        expr_attr_names = {}
+        for key, value in data.items():
+            if key != "id":
+                attr_key = f"#{key}"
+                val_key = f":{key}"
+                update_expr += f"{attr_key} = {val_key}, "
+                expr_attr_names[attr_key] = key
+                expr_attr_values[val_key] = value
+        update_expr = update_expr.rstrip(", ")
+        await self.table.update_item(
+            Key={"id": item_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_attr_names,
+            ExpressionAttributeValues=expr_attr_values,
+        )
+        return await self.get_raw(item_id)
 
-    async def remove(self, db: AsyncSession, db_obj: ModelType) -> ModelType:
-        """Soft-delete a database entry by marking it inactive."""
-        db_obj.is_active = False
-        db.add(db_obj)
-        await db.flush()
-        await db.refresh(db_obj)
-        return db_obj
+    async def remove(self, item_id: str):
+        item = await self.get_raw(item_id)
+        if item:
+            await self.table.update_item(
+                Key={"id": item_id},
+                UpdateExpression="SET #is_active = :val",
+                ExpressionAttributeNames={"#is_active": "is_active"},
+                ExpressionAttributeValues={":val": False},
+            )
+            item.is_active = False
+        return item
 
     async def get_multi_paginated(
         self,
-        db: AsyncSession,
         page: int = 1,
         limit: int = 10,
         sort_by: Optional[str] = None,
         sort_desc: bool = False,
         search: Optional[str] = None,
         search_fields: List[str] = [],
-        filters: dict = {}
-    ) -> Tuple[List[ModelType], int]:
-        """Retrieve a list of paginated, sorted, searched, and filtered records."""
-        query = select(self.model).where(self.model.is_active == True)
-        
-        # Apply filters
+        filters: dict = {},
+    ) -> Tuple[List, int]:
+        filter_expr = Attr("is_active").eq(True)
         for field, val in filters.items():
-            if val is not None and hasattr(self.model, field):
-                query = query.where(getattr(self.model, field) == val)
-                
-        # Apply search
+            if val is not None:
+                filter_expr = filter_expr & Attr(field).eq(val)
         if search and search_fields:
-            search_clauses = []
+            search_conditions = None
             for field in search_fields:
-                if hasattr(self.model, field):
-                    search_clauses.append(getattr(self.model, field).ilike(f"%{search}%"))
-            if search_clauses:
-                query = query.where(or_(*search_clauses))
-                
-        # Apply sorting
-        if sort_by and hasattr(self.model, sort_by):
-            col = getattr(self.model, sort_by)
-            if sort_desc:
-                query = query.order_by(col.desc())
-            else:
-                query = query.order_by(col.asc())
+                cond = Attr(field).contains(search)
+                search_conditions = cond if search_conditions is None else (search_conditions | cond)
+            if search_conditions is not None:
+                filter_expr = filter_expr & search_conditions
+        response = await self.table.scan(FilterExpression=filter_expr)
+        items = response.get("Items", [])
+        total = len(items)
+        if sort_by:
+            items.sort(
+                key=lambda x: (x.get(sort_by) or ""),
+                reverse=sort_desc,
+            )
         else:
-            if hasattr(self.model, "created_at"):
-                query = query.order_by(self.model.created_at.desc())
-            else:
-                query = query.order_by(self.model.id.desc())
-                
-        # Count total matching rows
-        count_query = select(func.count()).select_from(query.subquery())
-        total = (await db.execute(count_query)).scalar() or 0
-        
-        # Apply pagination offsets
-        query = query.offset((page - 1) * limit).limit(limit)
-        result = await db.execute(query)
-        items = list(result.scalars().all())
-        
-        return items, total
+            items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        offset = (page - 1) * limit
+        page_items = items[offset : offset + limit]
+        return [self.model_class(**item) for item in page_items], total

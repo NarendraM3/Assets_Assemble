@@ -1,32 +1,23 @@
-from typing import AsyncGenerator, Optional, List
+from typing import Optional, List
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import SessionLocal
 from app.config import settings
-from app.models.user import User
 from app.repositories.user import user_repository
 import uuid
 
-# OAuth2PasswordBearer reads the Authorization Bearer header
-# We set auto_error=False to customize response formatting
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Provide an async database session that commits automatically or rolls back on exceptions."""
-    async with SessionLocal() as db:
-        try:
-            yield db
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
+
+async def get_db():
+    """DynamoDB uses no session — this is a no-op dependency for backward compat."""
+    return None
+
 
 async def get_current_user(
-    db: AsyncSession = Depends(get_db),
+    db: None = Depends(get_db),
     token: Optional[str] = Depends(oauth2_scheme)
-) -> User:
+):
     """Authenticate and fetch the current active user from the JWT access token."""
     if not token:
         raise HTTPException(
@@ -51,8 +42,8 @@ async def get_current_user(
             detail="Could not validate signature or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
-    user = await user_repository.get(db, user_id)
+
+    user = await user_repository.get(str(user_id))
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,12 +52,13 @@ async def get_current_user(
         )
     return user
 
+
 class RoleChecker:
     """Dependency that checks if the authenticated user has one of the allowed roles."""
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles
 
-    def __call__(self, current_user: User = Depends(get_current_user)) -> User:
+    def __call__(self, current_user=Depends(get_current_user)):
         if current_user.role not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

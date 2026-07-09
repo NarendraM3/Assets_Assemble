@@ -1,21 +1,19 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, get_current_user, RoleChecker
 from app.models.user import User
 from app.services.asset import asset_service
 from app.repositories.asset import asset_repository
-from app.repositories.user import user_repository
 from app.schemas.base import ApiResponse, PaginatedData
 from app.schemas.asset import AssetResponse, AssetCreate, AssetUpdate
 from app.schemas.user import UserResponse
 from typing import Optional, Dict, Any
-import uuid
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
 
+
 @router.get("", response_model=ApiResponse[PaginatedData[AssetResponse]])
 async def list_assets(
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(15, ge=1, le=10000),
@@ -25,9 +23,8 @@ async def list_assets(
     category: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
-    assigned_to_id: Optional[uuid.UUID] = Query(None)
+    assigned_to_id: Optional[str] = Query(None),
 ):
-    """Retrieve asset catalog with searching, sorting, and filtering options."""
     filters = {}
     if category and category != "all":
         filters["category"] = category
@@ -37,16 +34,16 @@ async def list_assets(
         filters["location"] = location
     if assigned_to_id:
         filters["assigned_to_id"] = assigned_to_id
-        
+
     search_fields = ["name", "serial", "model", "manufacturer", "display_id"]
-    
+
     items, total = await asset_repository.get_multi_paginated(
-        db, page=page, limit=limit, sort_by=sort_by, sort_desc=sort_desc,
-        search=search, search_fields=search_fields, filters=filters
+        page=page, limit=limit, sort_by=sort_by, sort_desc=sort_desc,
+        search=search, search_fields=search_fields, filters=filters,
     )
-    
+
     schemas = [AssetResponse.model_validate(item) for item in items]
-    
+
     return ApiResponse(
         success=True,
         message="Assets listed successfully",
@@ -54,109 +51,108 @@ async def list_assets(
             items=schemas,
             total=total,
             page=page,
-            limit=limit
-        )
+            limit=limit,
+        ),
     )
+
 
 @router.get("/{asset_id}", response_model=ApiResponse[AssetResponse])
 async def get_asset(
-    asset_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    asset_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """Fetch specific asset by UUID."""
-    asset = await asset_repository.get(db, asset_id)
+    asset = await asset_repository.get(asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return ApiResponse(
         success=True,
         message="Asset found",
-        data=AssetResponse.model_validate(asset)
+        data=AssetResponse.model_validate(asset),
     )
+
 
 @router.post("", response_model=ApiResponse[AssetResponse])
 async def create_asset(
     asset_in: AssetCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "asset_manager"]))
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
 ):
-    """Add a new asset to the pool. Asset Managers and Admins only."""
-    asset = await asset_service.add_asset(db, asset_in, current_user.name)
+    asset = await asset_service.add_asset(asset_in, current_user.name)
     return ApiResponse(
         success=True,
         message="Asset created successfully",
-        data=AssetResponse.model_validate(asset)
+        data=AssetResponse.model_validate(asset),
     )
+
 
 @router.patch("/{asset_id}", response_model=ApiResponse[AssetResponse])
 async def update_asset(
-    asset_id: uuid.UUID,
+    asset_id: str,
     asset_in: AssetUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "asset_manager"]))
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
 ):
-    """Modify asset properties. Asset Managers and Admins only."""
-    asset = await asset_service.update_asset(db, asset_id, asset_in, current_user.name)
+    asset = await asset_service.update_asset(asset_id, asset_in, current_user.name)
     return ApiResponse(
         success=True,
         message="Asset updated successfully",
-        data=AssetResponse.model_validate(asset)
+        data=AssetResponse.model_validate(asset),
     )
+
 
 @router.delete("/{asset_id}", response_model=ApiResponse[AssetResponse])
 async def retire_asset(
-    asset_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "asset_manager"]))
+    asset_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
 ):
-    """Retire/Decommission an asset. Asset Managers and Admins only."""
-    asset = await asset_service.retire_asset(db, asset_id, current_user.name)
+    asset = await asset_service.retire_asset(asset_id, current_user.name)
     return ApiResponse(
         success=True,
         message="Asset marked as retired",
-        data=AssetResponse.model_validate(asset)
+        data=AssetResponse.model_validate(asset),
     )
+
 
 @router.post("/onboarding/verify/{employee_id}", response_model=ApiResponse[UserResponse])
 async def verify_onboarding_inventory(
-    employee_id: uuid.UUID,
+    employee_id: str,
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "asset_manager"]))
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
 ):
-    """Verify hardware stock in employee location and approve onboarding queue. Asset Manager/Admin only."""
     approved = bool(payload.get("approved", False))
     remarks = str(payload.get("remarks", ""))
-    
+
     updated_user = await asset_service.verify_onboarding(
-        db, user_id=employee_id, approved=approved, remarks=remarks, actor=current_user.name
+        user_id=employee_id, approved=approved, remarks=remarks, actor=current_user.name,
     )
     return ApiResponse(
         success=True,
         message="Onboarding verification status updated",
-        data=UserResponse.model_validate(updated_user)
+        data=UserResponse.model_validate(updated_user),
     )
+
 
 @router.post("/onboarding/allocate/{employee_id}", response_model=ApiResponse[UserResponse])
 async def complete_onboarding_allocation(
-    employee_id: uuid.UUID,
+    employee_id: str,
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["admin", "support"]))
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "support"])),
 ):
-    """Assign physical device to the verified employee, completing onboarding. Support/Admin only."""
     asset_id_str = payload.get("asset_id")
     if not asset_id_str:
         raise HTTPException(status_code=400, detail="asset_id is required")
-        
-    asset_id = uuid.UUID(asset_id_str)
+
     remarks = str(payload.get("remarks", ""))
-    
+
     updated_user = await asset_service.complete_onboarding(
-        db, user_id=employee_id, asset_id=asset_id, remarks=remarks, actor=current_user.name
+        user_id=employee_id, asset_id=asset_id_str, remarks=remarks, actor=current_user.name,
     )
     return ApiResponse(
         success=True,
         message="Asset allocated and onboarding complete",
-        data=UserResponse.model_validate(updated_user)
+        data=UserResponse.model_validate(updated_user),
     )

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -9,57 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
-import { NAV } from "@/lib/nav";
 
 export function AppLayout({ children }: { children?: ReactNode }) {
   const { user, forceChangePassword } = useAuth();
-  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => { setHydrated(true); }, []);
-  
-  useEffect(() => {
-    if (hydrated && !user) {
-      navigate({ to: "/login" });
-      return;
-    }
-
-    if (user) {
-      // Base routes allowed for all logged-in roles
-      const allowed = new Set(["/dashboard", "/profile", "/notifications", "/search", "/roles"]);
-      
-      // Load allowed routes configured for the user's role
-      const groups = NAV[user.role] || [];
-      groups.forEach((g) => {
-        g.items.forEach((item) => {
-          allowed.add(item.to);
-        });
-      });
-      
-      const normalizedPath = pathname.replace(/\/$/, "");
-      
-      // If navigating to a restricted path, redirect to dashboard with Access Denied toast
-      if (
-        normalizedPath.startsWith("/") &&
-        normalizedPath !== "/login" &&
-        normalizedPath !== "" &&
-        !allowed.has(normalizedPath)
-      ) {
-        toast.error("Access Denied: You do not have permission to view that page.");
-        navigate({ to: "/dashboard", replace: true });
-      }
-    }
-  }, [hydrated, user, pathname, navigate]);
-
-  if (!hydrated || !user) {
-    return <div className="min-h-screen grid place-items-center text-muted-foreground text-sm">Loading…</div>;
-  }
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +33,6 @@ export function AppLayout({ children }: { children?: ReactNode }) {
     try {
       await forceChangePassword(newPassword);
     } catch (err) {
-      // Error handled in auth context
     } finally {
       setIsSubmitting(false);
     }
@@ -102,7 +59,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
       </div>
 
       {/* Forced Password Change Overlay */}
-      {user.must_change_password && (
+      {user?.must_change_password && (
         <div className="fixed inset-0 z-[9999] bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
