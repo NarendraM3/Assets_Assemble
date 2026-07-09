@@ -15,7 +15,7 @@ export interface AuthUser {
 interface AuthCtx {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role?: Role) => Promise<void>;
   logout: () => void;
   forceChangePassword: (password: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -23,14 +23,43 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const MOCK_USER: AuthUser = {
-  id: "usr_mock_admin_001",
-  display_id: "ADM-001",
-  name: "Admin User",
-  email: "admin@acmecorp.com",
-  role: "admin",
-  avatar: "AU",
-  must_change_password: false,
+const MOCK_USERS: Record<Role, AuthUser> = {
+  admin: {
+    id: "usr_mock_admin_001",
+    display_id: "ADM-001",
+    name: "Admin User",
+    email: "admin@acmecorp.com",
+    role: "admin",
+    avatar: "AU",
+    must_change_password: false,
+  },
+  employee: {
+    id: "usr_mock_emp_001",
+    display_id: "EMP-1001",
+    name: "John Doe",
+    email: "john.doe@acmecorp.com",
+    role: "employee",
+    avatar: "JD",
+    must_change_password: false,
+  },
+  support: {
+    id: "usr_mock_sup_001",
+    display_id: "SUP-001",
+    name: "Support Engineer User",
+    email: "support@acmecorp.com",
+    role: "support",
+    avatar: "SE",
+    must_change_password: false,
+  },
+  asset_manager: {
+    id: "usr_mock_am_001",
+    display_id: "ASTM-001",
+    name: "Asset Manager User",
+    email: "asset.manager@acmecorp.com",
+    role: "asset_manager",
+    avatar: "AM",
+    must_change_password: false,
+  },
 };
 
 const FAKE_TOKEN = "mock_jwt_token_abc123";
@@ -61,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getToken();
     if (stored) {
-      setUser(MOCK_USER);
+      const savedRole = localStorage.getItem("itsm.role") as Role | null;
+      setUser(MOCK_USERS[savedRole ?? "admin"]);
     }
     setLoading(false);
   }, []);
@@ -69,22 +99,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = async () => {
     const stored = getToken();
     if (stored) {
-      setUser(MOCK_USER);
+      const savedRole = localStorage.getItem("itsm.role") as Role | null;
+      setUser(MOCK_USERS[savedRole ?? "admin"]);
     } else {
       setUser(null);
     }
     setLoading(false);
   };
 
-  const login = async (_email: string, _password: string) => {
+  const login = async (_email: string, _password: string, role: Role = "admin") => {
     setToken(FAKE_TOKEN);
-    setUser(MOCK_USER);
-    toast.success(`Welcome back, ${MOCK_USER.name}`);
+    localStorage.setItem("itsm.role", role);
+    setUser(MOCK_USERS[role]);
+    toast.success(`Welcome back, ${MOCK_USERS[role].name}`);
   };
 
   const logout = () => {
     setUser(null);
     removeToken();
+    localStorage.removeItem("itsm.role");
     toast.info("Signed out of session");
   };
 

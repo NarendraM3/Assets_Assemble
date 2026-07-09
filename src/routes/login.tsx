@@ -1,14 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Boxes, Mail, Lock, ArrowRight } from "lucide-react";
+import { Boxes, Mail, Lock, ArrowRight, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
+import type { Role } from "@/data/mock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — Acme ITSM" }] }),
@@ -21,9 +23,17 @@ const schema = z.object({
 });
 type FormV = z.infer<typeof schema>;
 
+const ROLES: { id: Role; label: string }[] = [
+  { id: "employee", label: "Employee" },
+  { id: "admin", label: "Admin" },
+  { id: "asset_manager", label: "Asset Manager" },
+  { id: "support", label: "Support Team" },
+];
+
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [role, setRole] = useState<Role>("employee");
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormV>({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
@@ -37,7 +47,7 @@ function LoginPage() {
 
   const onSubmit = async (v: FormV) => {
     try {
-      await login(v.email, v.password);
+      await login(v.email, v.password, role);
       navigate({ to: "/dashboard" });
     } catch (e) {
       // toast error is already handled by login method in AuthContext
@@ -119,6 +129,23 @@ function LoginPage() {
                 <Input id="password" type="password" placeholder="••••••••" className="pl-9" {...register("password")} />
               </div>
               {errors.password && <div className="text-xs text-destructive mt-1">{errors.password.message}</div>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="role">Login as</Label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger id="role" className="pl-9">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button type="submit" className="w-full h-10 mt-2 font-medium" disabled={isSubmitting}>
