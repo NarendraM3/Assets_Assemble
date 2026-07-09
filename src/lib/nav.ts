@@ -89,11 +89,6 @@ export const NAV: Record<Role, NavGroup[]> = {
       ]
     },
     {
-      label: "Approvals", items: [
-        { to: "/escalation-approvals", label: "Escalation Approvals", icon: ClipboardList },
-      ]
-    },
-    {
       label: "People", items: [
         { to: "/employees", label: "Employees", icon: Users },
         { to: "/departments", label: "Departments", icon: Building2 },

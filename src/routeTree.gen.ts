@@ -28,7 +28,6 @@ import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
 import { Route as AppMaintenanceHistoryRouteImport } from './routes/_app.maintenance-history'
 import { Route as AppMaintenanceRouteImport } from './routes/_app.maintenance'
 import { Route as AppKnowledgeBaseRouteImport } from './routes/_app.knowledge-base'
-import { Route as AppEscalationApprovalsRouteImport } from './routes/_app.escalation-approvals'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
@@ -136,11 +135,6 @@ const AppKnowledgeBaseRoute = AppKnowledgeBaseRouteImport.update({
   path: '/knowledge-base',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEscalationApprovalsRoute = AppEscalationApprovalsRouteImport.update({
-  id: '/escalation-approvals',
-  path: '/escalation-approvals',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
@@ -211,7 +205,6 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
-  '/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -243,7 +236,6 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/employees': typeof AppEmployeesRoute
-  '/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/knowledge-base': typeof AppKnowledgeBaseRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -277,7 +269,6 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
   '/_app/employees': typeof AppEmployeesRoute
-  '/_app/escalation-approvals': typeof AppEscalationApprovalsRoute
   '/_app/knowledge-base': typeof AppKnowledgeBaseRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/maintenance-history': typeof AppMaintenanceHistoryRoute
@@ -311,7 +302,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/employees'
-    | '/escalation-approvals'
     | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
@@ -343,7 +333,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/employees'
-    | '/escalation-approvals'
     | '/knowledge-base'
     | '/maintenance'
     | '/maintenance-history'
@@ -376,7 +365,6 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/departments'
     | '/_app/employees'
-    | '/_app/escalation-approvals'
     | '/_app/knowledge-base'
     | '/_app/maintenance'
     | '/_app/maintenance-history'
@@ -536,13 +524,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppKnowledgeBaseRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/escalation-approvals': {
-      id: '/_app/escalation-approvals'
-      path: '/escalation-approvals'
-      fullPath: '/escalation-approvals'
-      preLoaderRoute: typeof AppEscalationApprovalsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/employees': {
       id: '/_app/employees'
       path: '/employees'
@@ -635,7 +616,6 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
-  AppEscalationApprovalsRoute: typeof AppEscalationApprovalsRoute
   AppKnowledgeBaseRoute: typeof AppKnowledgeBaseRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppMaintenanceHistoryRoute: typeof AppMaintenanceHistoryRoute
@@ -666,7 +646,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,
   AppEmployeesRoute: AppEmployeesRoute,
-  AppEscalationApprovalsRoute: AppEscalationApprovalsRoute,
   AppKnowledgeBaseRoute: AppKnowledgeBaseRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,
   AppMaintenanceHistoryRoute: AppMaintenanceHistoryRoute,
