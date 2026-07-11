@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
@@ -9,10 +9,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Timeline } from "@/components/common/Timeline";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { Role, Ticket } from "@/data/mock";
+import type { Role, Ticket } from "@/types/domain";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 import { toast } from "sonner";
+import { AlertCircle, RefreshCw, Inbox } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export interface TicketListProps {
   title: string;
@@ -49,6 +51,9 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   const { user } = useAuth();
   const {
     tickets,
+    loading,
+    error,
+    refreshData,
     acceptTicket,
     updateTicketStatus,
     addTicketComment,
@@ -61,8 +66,12 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   const [tab, setTab] = useState<string>("all");
   const [comment, setComment] = useState("");
 
+  useEffect(() => {
+    refreshData();
+  }, []);
+
   const scopedTickets = useMemo(() => {
-    if (role === "support") {
+    if (role === "support" || role === "lo_support") {
       return tickets.filter(t => t.assignedRole !== "admin" && t.assignedRole !== "asset_manager");
     }
     if (role === "admin") {
@@ -183,22 +192,62 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   return (
     <>
       <PageHeader title={title} description={description} actions={actions} />
-      <Tabs value={tab} onValueChange={setTab} className="mb-4">
-        <TabsList>
-          <TabsTrigger value="all">All ({scopedTickets.filter(t => !filter || filter(t)).length})</TabsTrigger>
-          {(role === "employee" ? EMPLOYEE_LANES : STATUS_LANES).map(s => (
-            <TabsTrigger key={s} value={s}>{s}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-      <Card className="p-4">
-        <DataTable
-          data={data}
-          columns={columns}
-          searchPlaceholder="Search tickets by title, requester, category..."
-          onRowClick={(r) => setSelectedId(r.id)}
-        />
-      </Card>
+
+      {loading && (
+        <Card className="p-12 mb-4">
+          <div className="flex flex-col items-center justify-center text-muted-foreground gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-primary/60" />
+            <p className="text-sm">Loading tickets...</p>
+          </div>
+        </Card>
+      )}
+
+      {!loading && error && (
+        <Card className="p-6 mb-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle>Failed to load tickets</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4 flex-wrap">
+              <span>{error}</span>
+              <Button size="sm" variant="outline" onClick={refreshData}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </Card>
+      )}
+
+      {!loading && !error && (
+        <>
+          <Tabs value={tab} onValueChange={setTab} className="mb-4">
+            <TabsList>
+              <TabsTrigger value="all">All ({scopedTickets.filter(t => !filter || filter(t)).length})</TabsTrigger>
+              {(role === "employee" ? EMPLOYEE_LANES : STATUS_LANES).map(s => (
+                <TabsTrigger key={s} value={s}>{s}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
+          {data.length === 0 ? (
+            <Card className="p-12">
+              <div className="flex flex-col items-center justify-center text-muted-foreground gap-3">
+                <Inbox className="h-12 w-12 text-muted-foreground/40" />
+                <p className="text-lg font-medium">No ticket history found</p>
+                <p className="text-sm text-muted-foreground/60">There are no tickets matching your current filters.</p>
+              </div>
+            </Card>
+          ) : (
+            <Card className="p-4">
+              <DataTable
+                data={data}
+                columns={columns}
+                searchPlaceholder="Search tickets by title, requester, category..."
+                onRowClick={(r) => setSelectedId(r.id)}
+              />
+            </Card>
+          )}
+        </>
+      )}
 
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-6">

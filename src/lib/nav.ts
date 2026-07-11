@@ -1,4 +1,4 @@
-import type { Role } from "@/data/mock";
+import type { Role } from "@/types/domain";
 import {
   LayoutDashboard, Package, Ticket as TicketIcon, User, Users,
   Building2, Tags, Settings as SettingsIcon, FileBarChart,
@@ -79,6 +79,26 @@ export const NAV: Record<Role, NavGroup[]> = {
     {
       label: "Partners", items: [
         { to: "/vendors", label: "Vendors", icon: ShoppingBag },
+      ]
+    },
+  ],
+  lo_support: [
+    {
+      label: "Overview", items: [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/allocation-onboarding", label: "Asset Allocation Onboarding", icon: ClipboardList },
+      ]
+    },
+    {
+      label: "Tickets", items: [
+        { to: "/assigned-tickets", label: "Assigned Tickets", icon: ClipboardList },
+        { to: "/all-tickets", label: "All Tickets", icon: TicketIcon },
+      ]
+    },
+    {
+      label: "Knowledge", items: [
+        { to: "/maintenance-history", label: "Maintenance History", icon: Wrench },
+        { to: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
       ]
     },
   ],

@@ -8,8 +8,8 @@ import { StatCard } from "@/components/common/StatCard";
 import { ChartCard } from "@/components/common/ChartCard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { CATEGORIES } from "@/data/mock";
 import { useData } from "@/contexts/data";
+import { countBy, monthKey } from "@/lib/live-data";
 
 const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)","oklch(0.5 0.1 200)","oklch(0.55 0.18 320)"];
 
@@ -21,8 +21,9 @@ export function AssetManagerDashboard() {
   const maint = assets.filter(a => a.status === "Maintenance").length;
   const retired = assets.filter(a => a.status === "Retired").length;
 
-  const byCategory = CATEGORIES.map((c, i) => ({
-    name: c, value: assets.filter(a => a.category === c).length, fill: COLORS[i % COLORS.length],
+  const byCategory = countBy(assets, (asset) => asset.category).map((item, i) => ({
+    ...item,
+    fill: COLORS[i % COLORS.length],
   }));
   const byStatus = [
     { name: "Assigned", v: assigned },
@@ -30,8 +31,9 @@ export function AssetManagerDashboard() {
     { name: "Maint.", v: maint },
     { name: "Retired", v: retired },
   ];
-  const warrantyTrend = ["Aug","Sep","Oct","Nov","Dec","Jan"].map((m, i) => ({
-    m, expiring: 12 + i * 4 + (i % 2) * 5,
+  const warrantyTrend = countBy(assets, (asset) => monthKey(asset.warrantyExpiry)).map((item) => ({
+    m: item.name,
+    expiring: item.value,
   }));
 
   return (

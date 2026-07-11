@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { TICKET_CATEGORIES } from "@/data/mock";
+import { useMemo } from "react";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 
@@ -36,7 +36,11 @@ import { useState } from "react";
 function RaiseTicket() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const { assets, createTicket, uploadFiles } = useData();
+  const { assets, tickets, createTicket, uploadFiles } = useData();
+  const TICKET_CATEGORIES = useMemo(() => {
+    const cats = new Set(tickets.map(t => t.category).filter(Boolean));
+    return Array.from(cats).sort();
+  }, [tickets]);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 

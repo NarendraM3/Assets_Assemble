@@ -5,7 +5,7 @@ import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { type Assignment } from "@/data/mock";
+import type { Assignment } from "@/types/domain";
 import { useData } from "@/contexts/data";
 import { toast } from "sonner";
 import { ArrowLeftRight, RotateCcw, Plus } from "lucide-react";

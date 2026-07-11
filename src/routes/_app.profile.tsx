@@ -16,9 +16,10 @@ export const Route = createFileRoute("/_app/profile")({
 
 function ProfilePage() {
   const { user } = useAuth();
-  const { assets, tickets } = useData();
+  const { employees, assets, tickets } = useData();
+  const profile = employees.find(e => e.uuid === user?.id || e.id === user?.id);
 
-  const myAssets = assets.filter(a => a.assignedTo === user?.id).slice(0, 5);
+  const myAssets = assets.filter(a => a.assignedTo === user?.display_id || a.assignedTo === user?.id).slice(0, 5);
   const myTickets = tickets.filter(t => t.createdBy === user?.name).slice(0, 5);
 
   return (
@@ -32,21 +33,23 @@ function ProfilePage() {
           <div className="text-sm text-muted-foreground capitalize">{user?.role.replace("_"," ")}</div>
           <div className="mt-6 text-left space-y-3 text-sm">
             <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground"/>{user?.email}</div>
-            <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground"/>+1 555-0142</div>
-            <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/>HQ — New York</div>
-            <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/>Information Technology</div>
+            <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground"/>{profile?.phone || "Not provided"}</div>
+            <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/>{profile?.location || "Not assigned"}</div>
+            <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/>{profile?.department || "Not assigned"}</div>
           </div>
         </Card>
           <div className="lg:col-span-2">
             <Tabs defaultValue="assets">
               <TabsList>
-                <TabsTrigger value="assets">Assigned Assets</TabsTrigger>
-                <TabsTrigger value="tickets">Recent Tickets</TabsTrigger>
+                <TabsTrigger value="assets">Assigned Assets ({myAssets.length})</TabsTrigger>
+                <TabsTrigger value="tickets">Recent Tickets ({myTickets.length})</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
               <TabsContent value="assets">
                 <Card className="divide-y">
-                  {myAssets.map(a => (
+                  {myAssets.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground">No assets assigned to you.</div>
+                  ) : myAssets.map(a => (
                     <div key={a.id} className="p-4 flex items-center justify-between">
                       <div>
                         <div className="font-medium text-sm">{a.name}</div>
@@ -59,7 +62,9 @@ function ProfilePage() {
               </TabsContent>
               <TabsContent value="tickets">
                 <Card className="divide-y">
-                  {myTickets.map(t => (
+                  {myTickets.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground">No tickets raised yet.</div>
+                  ) : myTickets.map(t => (
                     <div key={t.id} className="p-4 flex items-center justify-between">
                       <div className="min-w-0"><div className="font-medium text-sm truncate">{t.title}</div><div className="text-xs text-muted-foreground">{t.id} • {t.updatedAt}</div></div>
                       <div className="flex gap-2"><StatusBadge status={t.priority}/><StatusBadge status={t.status}/></div>
@@ -69,12 +74,16 @@ function ProfilePage() {
               </TabsContent>
               <TabsContent value="activity">
                 <Card className="p-6">
-                  <Timeline items={[
-                    { title: "Signed in from new device", time: "2 hours ago", tone: "primary" },
-                    { title: "Password changed", time: "3 days ago", tone: "success" },
-                    { title: "Ticket TKT-5023 raised", time: "5 days ago", tone: "default" },
-                    { title: "Onboarding completed", time: "1 month ago", tone: "success" },
-                  ]}/>
+                  {myTickets.length === 0 ? (
+                    <div className="text-center text-sm text-muted-foreground">No recent activity.</div>
+                  ) : (
+                    <Timeline items={myTickets.slice(0, 5).map(t => ({
+                      title: `Ticket ${t.id} - ${t.status}`,
+                      description: t.title,
+                      time: t.updatedAt,
+                      tone: t.status === "Resolved" || t.status === "Closed" ? "success" as const : "primary" as const,
+                    }))}/>
+                  )}
                 </Card>
               </TabsContent>
             </Tabs>

@@ -9,6 +9,7 @@ import { ChartCard } from "@/components/common/ChartCard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { useData } from "@/contexts/data";
+import { countBy, monthKey } from "@/lib/live-data";
 
 const COLORS = ["oklch(0.55 0.2 255)", "oklch(0.65 0.16 150)", "oklch(0.72 0.17 55)", "oklch(0.6 0.2 25)"];
 
@@ -16,16 +17,19 @@ export function SupportDashboard() {
   const { tickets } = useData();
   const open = tickets.filter(t => t.status === "Open").length;
   const critical = tickets.filter(t => t.priority === "Critical").length;
-  const priorityData = ["Low","Medium","High","Critical"].map((p, i) => ({
-    name: p, value: tickets.filter(t => t.priority === p).length, fill: COLORS[i],
+  const priorityData = countBy(tickets, (ticket) => ticket.priority).map((item, i) => ({
+    ...item,
+    fill: COLORS[i % COLORS.length],
   }));
   const sla = [
     { name: "On Track", v: tickets.filter(t => t.sla === "On Track").length },
     { name: "At Risk", v: tickets.filter(t => t.sla === "At Risk").length },
     { name: "Breached", v: tickets.filter(t => t.sla === "Breached").length },
   ];
-  const monthly = ["Jan","Feb","Mar","Apr","May","Jun","Jul"].map((m, i) => ({
-    m, opened: 40 + i * 5 + (i % 2) * 8, resolved: 38 + i * 5,
+  const monthly = countBy(tickets, (ticket) => monthKey(ticket.createdAt)).map((item) => ({
+    m: item.name,
+    opened: item.value,
+    resolved: tickets.filter((ticket) => monthKey(ticket.updatedAt) === item.name && ["Resolved", "Closed"].includes(ticket.status)).length,
   }));
 
   return (
@@ -34,8 +38,8 @@ export function SupportDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Open Tickets" value={open} icon={TicketIcon} tone="info" index={0} />
         <StatCard label="Critical Tickets" value={critical} icon={AlertTriangle} tone="danger" index={1} />
-        <StatCard label="Assigned Today" value={14} icon={Clock} tone="warning" delta={{ value: "+3 vs yesterday", up: true }} index={2} />
-        <StatCard label="Resolved Today" value={9} icon={CheckCircle2} tone="success" delta={{ value: "-1 vs yesterday", up: false }} index={3} />
+        <StatCard label="Assigned Today" value={tickets.filter(t => t.status === "Assigned" && t.updatedAt === new Date().toISOString().slice(0, 10)).length} icon={Clock} tone="warning" index={2} />
+        <StatCard label="Resolved Today" value={tickets.filter(t => ["Resolved", "Closed"].includes(t.status) && t.updatedAt === new Date().toISOString().slice(0, 10)).length} icon={CheckCircle2} tone="success" index={3} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <ChartCard title="Tickets by Priority">

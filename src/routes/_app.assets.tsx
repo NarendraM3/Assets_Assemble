@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CATEGORIES, MANUFACTURERS, LOCATIONS, type Asset } from "@/data/mock";
+import type { Asset } from "@/types/domain";
+import { uniqueValues } from "@/lib/live-data";
 import { useData } from "@/contexts/data";
 import { toast } from "sonner";
 
@@ -24,6 +25,9 @@ export const Route = createFileRoute("/_app/assets")({
 
 function AssetsPage() {
   const { assets, employees, addAsset, retireAsset } = useData();
+  const CATEGORIES = uniqueValues(assets.map(a => a.category));
+  const MANUFACTURERS = uniqueValues(assets.map(a => a.manufacturer));
+  const LOCATIONS = uniqueValues(assets.map(a => a.location));
   const [selected, setSelected] = useState<Asset | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [category, setCategory] = useState("all");

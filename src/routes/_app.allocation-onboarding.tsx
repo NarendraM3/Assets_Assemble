@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useData } from "@/contexts/data";
-import { type Employee } from "@/data/mock";
+import type { Employee } from "@/types/domain";
 import { toast } from "sonner";
 import { Laptop, ArrowRight, User, Search } from "lucide-react";
 

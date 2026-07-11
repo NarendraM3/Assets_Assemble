@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { DEPARTMENTS, LOCATIONS, CATEGORIES, type Employee } from "@/data/mock";
+import type { Employee } from "@/types/domain";
+import { uniqueValues } from "@/lib/live-data";
 import { useData } from "@/contexts/data";
 import { Plus, MoreHorizontal, Eye, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckCircle2, AlertCircle, Laptop } from "lucide-react";
 import { toast } from "sonner";
@@ -24,7 +25,10 @@ export const Route = createFileRoute("/_app/employees")({
 });
 
 function EmployeesPage() {
-  const { employees, addEmployee, deleteEmployee } = useData();
+  const { employees, assets, addEmployee, deleteEmployee } = useData();
+  const DEPARTMENTS = uniqueValues(employees.map(e => e.department));
+  const LOCATIONS = uniqueValues(employees.map(e => e.location));
+  const CATEGORIES = uniqueValues(assets.map(a => a.category));
   const [selected, setSelected] = useState<Employee | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
@@ -324,6 +328,7 @@ function EmployeesPage() {
                   <SelectContent>
                     <SelectItem value="employee">Employee</SelectItem>
                     <SelectItem value="support">Support Engineer</SelectItem>
+                    <SelectItem value="lo_support">LO Support</SelectItem>
                     <SelectItem value="asset_manager">Asset Manager</SelectItem>
                   </SelectContent>
                 </Select>

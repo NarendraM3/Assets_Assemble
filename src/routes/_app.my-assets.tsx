@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { type Asset } from "@/data/mock";
+import type { Asset } from "@/types/domain";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
 

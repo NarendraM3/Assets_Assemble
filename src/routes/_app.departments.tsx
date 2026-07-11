@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DEPARTMENTS } from "@/data/mock";
 import { Building2, Users, Plus, MoreHorizontal, DollarSign, Ticket, Laptop, Search, MapPin, ArrowLeft } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -12,11 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { useData } from "@/contexts/data";
+import { uniqueValues } from "@/lib/live-data";
 
 export const Route = createFileRoute("/_app/departments")({
   component: () => {
     const { employees, assets, tickets } = useData();
-    const heads = ["Sarah Johnson", "Michael Chen", "Priya Sharma", "David Rodriguez", "Emma Wilson", "Amelia Kumar"];
+    const departments = uniqueValues(employees.map((employee) => employee.department));
+    const departmentHead = (deptName: string) =>
+      employees.find((employee) => employee.department === deptName && employee.manager)?.manager || "Not assigned";
     const [selectedDept, setSelectedDept] = useState<string | null>(null);
     const [memberSearch, setMemberSearch] = useState("");
     const [assetSearch, setAssetSearch] = useState("");
@@ -109,7 +111,7 @@ export const Route = createFileRoute("/_app/departments")({
             <div>
               <h1 className="text-3xl font-bold tracking-tight">{selectedDept}</h1>
               <p className="text-muted-foreground mt-0.5">
-                Department Head: <span className="font-semibold text-foreground">{heads[DEPARTMENTS.indexOf(selectedDept)]}</span>
+                Department Head: <span className="font-semibold text-foreground">{departmentHead(selectedDept)}</span>
               </p>
             </div>
           </div>
@@ -180,7 +182,7 @@ export const Route = createFileRoute("/_app/departments")({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Department Head</span>
-                    <span className="font-semibold">{heads[DEPARTMENTS.indexOf(selectedDept)]}</span>
+                    <span className="font-semibold">{departmentHead(selectedDept)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Avg. Assets per Member</span>
@@ -380,7 +382,10 @@ export const Route = createFileRoute("/_app/departments")({
         <PageHeader title="Departments" description="Organizational hierarchy across the company."
           actions={<Button onClick={()=>toast.success("Department created")}><Plus className="h-4 w-4 mr-1"/>New Department</Button>}/>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {DEPARTMENTS.map((d, i) => {
+          {departments.length === 0 && (
+            <Card className="p-8 text-center text-sm text-muted-foreground">No departments found.</Card>
+          )}
+          {departments.map((d) => {
             const count = employees.filter(e => e.department === d).length;
             return (
               <Card
@@ -417,7 +422,7 @@ export const Route = createFileRoute("/_app/departments")({
                 </div>
                 <div className="mt-4">
                   <div className="text-lg font-semibold">{d}</div>
-                  <div className="text-xs text-muted-foreground">Head: {heads[i]}</div>
+                  <div className="text-xs text-muted-foreground">Head: {departmentHead(d)}</div>
                 </div>
                 <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
                   <div className="flex items-center gap-1 text-muted-foreground"><Users className="h-4 w-4"/> {count} members</div>

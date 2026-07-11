@@ -7,7 +7,7 @@ import { ChartCard } from "@/components/common/ChartCard";
 import { DataTable } from "@/components/common/DataTable";
 import { Card } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { type Asset } from "@/data/mock";
+import type { Asset } from "@/types/domain";
 import { cn } from "@/lib/utils";
 import { useData } from "@/contexts/data";
 
@@ -25,8 +25,15 @@ function WarrantyPage() {
   const expired = assets.filter(a => daysUntil(a.warrantyExpiry) < 0);
   const active = assets.filter(a => daysUntil(a.warrantyExpiry) > 30);
 
-  const trend = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb"].map((m, i) => ({
-    m, expiring: 15 + i*4 + (i%2)*5,
+  const trend = [...new Set(assets.map(a => {
+    const d = new Date(a.warrantyExpiry);
+    return isNaN(d.getTime()) ? null : d.toLocaleString("en", { month: "short", year: "2-digit" });
+  }).filter(Boolean))].slice(0, 8).map(m => ({
+    m,
+    expiring: assets.filter(a => {
+      const d = new Date(a.warrantyExpiry);
+      return !isNaN(d.getTime()) && d.toLocaleString("en", { month: "short", year: "2-digit" }) === m;
+    }).length,
   }));
 
   const columns: ColumnDef<Asset>[] = [

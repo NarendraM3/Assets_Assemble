@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Role } from "@/data/mock";
+import type { Role } from "@/types/domain";
 import { toast } from "sonner";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ??
+  "http://localhost:8000/api";
 
 export interface AuthUser {
   id: string;
@@ -23,49 +27,9 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const MOCK_USERS: Record<Role, AuthUser> = {
-  admin: {
-    id: "usr_mock_admin_001",
-    display_id: "ADM-001",
-    name: "Admin User",
-    email: "admin@acmecorp.com",
-    role: "admin",
-    avatar: "AU",
-    must_change_password: false,
-  },
-  employee: {
-    id: "usr_mock_emp_001",
-    display_id: "EMP-1001",
-    name: "John Doe",
-    email: "john.doe@acmecorp.com",
-    role: "employee",
-    avatar: "JD",
-    must_change_password: false,
-  },
-  support: {
-    id: "usr_mock_sup_001",
-    display_id: "SUP-001",
-    name: "Support Engineer User",
-    email: "support@acmecorp.com",
-    role: "support",
-    avatar: "SE",
-    must_change_password: false,
-  },
-  asset_manager: {
-    id: "usr_mock_am_001",
-    display_id: "ASTM-001",
-    name: "Asset Manager User",
-    email: "asset.manager@acmecorp.com",
-    role: "asset_manager",
-    avatar: "AM",
-    must_change_password: false,
-  },
-};
-
-const FAKE_TOKEN = "mock_jwt_token_abc123";
-
 export function getAuthHeaders() {
-  return { "Authorization": `Bearer ${FAKE_TOKEN}` };
+  const token = getToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
 }
 
 function getToken() {
@@ -83,6 +47,33 @@ function removeToken() {
   localStorage.removeItem("itsm.token");
 }
 
+function mapBackendUser(bu: any): AuthUser {
+  return {
+    id: bu.id ?? bu.display_id,
+    display_id: bu.display_id ?? bu.id,
+    name: bu.name,
+    email: bu.email,
+    role: (bu.role as Role) ?? "employee",
+    avatar: bu.avatar ?? bu.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+    must_change_password: bu.must_change_password ?? false,
+  };
+}
+
+async function fetchMe(token: string): Promise<AuthUser | null> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await res.json();
+    if (res.ok && body.success) {
+      return mapBackendUser(body.data);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,28 +81,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getToken();
     if (stored) {
-      const savedRole = localStorage.getItem("itsm.role") as Role | null;
-      setUser(MOCK_USERS[savedRole ?? "admin"]);
+      fetchMe(stored).then((real) => {
+        if (real) {
+          setUser(real);
+        } else {
+          removeToken();
+          localStorage.removeItem("itsm.role");
+          setUser(null);
+        }
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const refreshProfile = async () => {
     const stored = getToken();
     if (stored) {
-      const savedRole = localStorage.getItem("itsm.role") as Role | null;
-      setUser(MOCK_USERS[savedRole ?? "admin"]);
+      const real = await fetchMe(stored);
+      if (real) {
+        setUser(real);
+      } else {
+        removeToken();
+        localStorage.removeItem("itsm.role");
+        setUser(null);
+      }
     } else {
       setUser(null);
     }
     setLoading(false);
   };
 
-  const login = async (_email: string, _password: string, role: Role = "admin") => {
-    setToken(FAKE_TOKEN);
-    localStorage.setItem("itsm.role", role);
-    setUser(MOCK_USERS[role]);
-    toast.success(`Welcome back, ${MOCK_USERS[role].name}`);
+  const login = async (email: string, password: string, role: Role = "admin") => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        const { access_token, user: backendUser } = body.data;
+        setToken(access_token);
+        localStorage.setItem("itsm.role", backendUser.role);
+        const mapped = mapBackendUser(backendUser);
+        setUser(mapped);
+        toast.success(`Welcome back, ${mapped.name}`);
+        return;
+      }
+      throw new Error(body.message || "Login failed");
+    } catch (err: any) {
+      const message = err.message || "Unable to sign in. Please check your credentials.";
+      toast.error(message);
+      throw err;
+    }
   };
 
   const logout = () => {
@@ -121,10 +145,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.info("Signed out of session");
   };
 
-  const forceChangePassword = async (_password: string) => {
-    if (user) {
-      setUser({ ...user, must_change_password: false });
+  const forceChangePassword = async (password: string) => {
+    const token = getToken();
+    if (!token) throw new Error("You must be signed in to change your password.");
+    const res = await fetch(`${API_BASE}/auth/force-change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ new_password: password }),
+    });
+    const body = await res.json();
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || body.detail || "Failed to change password");
     }
+    await refreshProfile();
     toast.success("Password changed successfully!");
   };
 

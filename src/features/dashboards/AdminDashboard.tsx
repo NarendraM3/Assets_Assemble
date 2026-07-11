@@ -15,8 +15,8 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
-import { TICKET_CATEGORIES, DEPARTMENTS, CATEGORIES } from "@/data/mock";
 import { toast } from "sonner";
+import { countBy, monthKey } from "@/lib/live-data";
 
 const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)"];
 
@@ -44,34 +44,42 @@ export function AdminDashboard() {
     return () => { active = false; };
   }, [selectedEmp]);
 
-  const failures = ["Laptop","Desktop","Monitor","Printer","Mobile Phone"].map((c,i)=>({
-    c, v: 40 - i*6 + (i%2)*3,
+  const failures = countBy(
+    tickets.filter((ticket) => ticket.assetId),
+    (ticket) => assets.find((asset) => asset.id === ticket.assetId || asset.uuid === ticket.assetId)?.category,
+  ).map((item) => ({ c: item.name, v: item.value }));
+  const catData = countBy(tickets, (ticket) => ticket.category).map((item, i) => ({
+    name: item.name, value: item.value, fill: COLORS[i%COLORS.length],
   }));
-  const catData = TICKET_CATEGORIES.map((c,i)=>({
-    name: c, value: tickets.filter(t=>t.category===c).length, fill: COLORS[i%COLORS.length],
-  }));
-  const deptAssets = DEPARTMENTS.map(d=>({
-    d, v: Math.floor(assets.length / DEPARTMENTS.length) + Math.floor(Math.random()*30),
-  }));
-  const growth = ["Jan","Feb","Mar","Apr","May","Jun","Jul"].map((m,i)=>({
-    m, employees: 180 + i*3, assets: 900 + i*15, tickets: 60 + i*8,
+  const deptAssets = countBy(
+    assets.filter((asset) => asset.assignedTo),
+    (asset) => employees.find((employee) => employee.uuid === asset.assignedTo || employee.id === asset.assignedTo)?.department,
+  ).map((item) => ({ d: item.name, v: item.value }));
+  const employeeGrowth = countBy(employees, (employee) => monthKey(employee.joinDate));
+  const assetGrowth = countBy(assets, (asset) => monthKey(asset.purchaseDate));
+  const ticketGrowth = countBy(tickets, (ticket) => monthKey(ticket.createdAt));
+  const growth = Array.from(new Set([...employeeGrowth, ...assetGrowth, ...ticketGrowth].map((item) => item.name))).map((m) => ({
+    m,
+    employees: employeeGrowth.find((item) => item.name === m)?.value ?? 0,
+    assets: assetGrowth.find((item) => item.name === m)?.value ?? 0,
+    tickets: ticketGrowth.find((item) => item.name === m)?.value ?? 0,
   }));
 
-  const assetsByCat = CATEGORIES.map((c, i) => ({
-    c,
-    v: assets.filter(a => a.category === c).length,
+  const assetsByCat = countBy(assets, (asset) => asset.category).map((item, i) => ({
+    c: item.name,
+    v: item.value,
     fill: COLORS[i % COLORS.length]
   }));
 
-  const ticketsByDept = DEPARTMENTS.map(d => ({
-    d,
-    v: Math.floor(tickets.length / DEPARTMENTS.length) + Math.floor(Math.random() * 20)
+  const ticketsByDept = countBy(tickets, (ticket) => employees.find((employee) => employee.name === ticket.createdBy)?.department).map((item) => ({
+    d: item.name,
+    v: item.value,
   }));
 
-  const monthly = ["Jan","Feb","Mar","Apr","May","Jun","Jul"].map((m, i) => ({
-    m,
-    opened: 60 + i * 8,
-    closed: 55 + i * 7
+  const monthly = countBy(tickets, (ticket) => monthKey(ticket.createdAt)).map((item) => ({
+    m: item.name,
+    opened: item.value,
+    closed: tickets.filter((ticket) => monthKey(ticket.updatedAt) === item.name && ["Resolved", "Closed"].includes(ticket.status)).length
   }));
 
   const exportAs = (fmt: string) => toast.success(`Exported as ${fmt}`, { description: "Download started (demo)" });

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/contexts/data";
-import { type Employee } from "@/data/mock";
+import type { Employee } from "@/types/domain";
 import { toast } from "sonner";
 import { ClipboardList, CheckCircle2, AlertCircle } from "lucide-react";
 

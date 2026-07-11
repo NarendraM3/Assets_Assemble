@@ -1,7 +1,7 @@
 // Deterministic mock data for the Enterprise IT Asset Management app.
 // All data is generated in-memory. No backend calls.
 
-export type Role = "employee" | "support" | "asset_manager" | "admin";
+export type Role = "employee" | "support" | "asset_manager" | "admin" | "lo_support";
 
 export interface Employee {
   id: string;
@@ -135,6 +135,7 @@ export const ROLES: { id: Role; name: string; description: string }[] = [
   { id: "support", name: "Support Engineer", description: "IT support & ticket resolution" },
   { id: "asset_manager", name: "Asset Manager", description: "Full asset lifecycle" },
   { id: "admin", name: "Administrator", description: "System configuration & oversight" },
+  { id: "lo_support", name: "LO Support", description: "Local office IT support & asset allocation" },
 ];
 
 // Deterministic PRNG
