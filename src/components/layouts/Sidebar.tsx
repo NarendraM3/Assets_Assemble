@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, Boxes } from "lucide-react";
 import { NAV } from "@/lib/nav";
@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export function Sidebar({ collapsed, setCollapsed }: { collapsed: boolean; setCollapsed: (v: boolean) => void }) {
   const { user } = useAuth();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = useLocation().pathname;
   if (!user) return null;
   const groups = NAV[user.role];
 

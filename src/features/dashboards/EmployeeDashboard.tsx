@@ -1,5 +1,5 @@
 import { Package, TicketIcon, CheckCircle2, Clock, Plus, ArrowRight, User, Mail, Phone, Briefcase, UserCheck, MapPin, Calendar, KeyRound, HelpCircle, Bell, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";

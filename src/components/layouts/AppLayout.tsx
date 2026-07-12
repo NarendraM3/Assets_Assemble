@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Outlet, useRouterState } from "@tanstack/react-router";
+import { Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -12,7 +12,7 @@ import { KeyRound } from "lucide-react";
 
 export function AppLayout({ children }: { children?: ReactNode }) {
   const { user, forceChangePassword } = useAuth();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = useLocation().pathname;
   const [collapsed, setCollapsed] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");

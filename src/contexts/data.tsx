@@ -10,24 +10,8 @@ import {
   addTicketComment as apiAddTicketComment,
 } from "@/services/tickets";
 import {
-  completeOnboardingAllocation as apiCompleteOnboardingAllocation,
-  createAsset as apiCreateAsset,
-  createAssignment as apiCreateAssignment,
   createEmployee as apiCreateEmployee,
-  deleteEmployee as apiDeleteEmployee,
-  fetchAssets,
-  fetchAssignments,
-  fetchAuditLogs,
-  fetchDashboardStats as apiFetchDashboardStats,
   fetchEmployees,
-  fetchFullProfile as apiFetchFullProfile,
-  fetchKnowledgeBase,
-  fetchMaintenance,
-  fetchNotifications,
-  fetchRecentEmployees as apiFetchRecentEmployees,
-  fetchVendors,
-  retireAsset as apiRetireAsset,
-  verifyOnboardingAsset as apiVerifyOnboardingAsset,
 } from "@/services/data";
 import { useAuth } from "@/contexts/auth";
 import { toast } from "sonner";
@@ -70,15 +54,15 @@ function todayStr() {
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assets] = useState<Asset[]>([]);
+  const [assignments] = useState<Assignment[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
-  const [knowledgeBase, setKnowledgeBase] = useState<any[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<any | null>(null);
+  const [auditLogs] = useState<any[]>([]);
+  const [notifications] = useState<any[]>([]);
+  const [vendors] = useState<Vendor[]>([]);
+  const [maintenance] = useState<Maintenance[]>([]);
+  const [knowledgeBase] = useState<any[]>([]);
+  const [dashboardStats] = useState<any | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,55 +74,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     try {
       const role = user?.role;
-
-      const [
-        apiEmployees,
-        apiAssets,
-        apiAssignments,
-        ticketResult,
-        apiAuditLogs,
-        apiNotifications,
-        apiVendors,
-        apiMaintenance,
-        apiKnowledgeBase,
-        apiDashboardStats,
-      ] = await Promise.all([
+      const [apiEmployees, ticketResult] = await Promise.all([
         fetchEmployees(),
-        fetchAssets(),
-        fetchAssignments(),
         apiFetchTickets(role),
-        fetchAuditLogs().catch(() => []),
-        fetchNotifications(),
-        fetchVendors(),
-        fetchMaintenance(),
-        fetchKnowledgeBase(),
-        apiFetchDashboardStats().catch(() => null),
       ]);
-
       setEmployees(apiEmployees);
-      setAssets(apiAssets);
-      setAssignments(apiAssignments);
       setTickets(ticketResult.tickets);
-      setAuditLogs(apiAuditLogs);
-      setNotifications(apiNotifications);
-      setVendors(apiVendors);
-      setMaintenance(apiMaintenance);
-      setKnowledgeBase(apiKnowledgeBase);
-      setDashboardStats(apiDashboardStats);
     } catch (err: any) {
-      const message = err.message || "Failed to load live application data";
+      const message = err.message || "Failed to load application data";
       setError(message);
       toast.error(message);
       setEmployees([]);
-      setAssets([]);
-      setAssignments([]);
       setTickets([]);
-      setAuditLogs([]);
-      setNotifications([]);
-      setVendors([]);
-      setMaintenance([]);
-      setKnowledgeBase([]);
-      setDashboardStats(null);
     } finally {
       setLoading(false);
       setHydrated(true);
@@ -274,100 +221,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteEmployee = async (id: string) => {
-    const employee = employees.find((e) => e.id === id || e.uuid === id);
-    if (!employee) return;
-    try {
-      await apiDeleteEmployee(employee.uuid);
-      await refreshData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete employee");
-      throw err;
-    }
+    toast.error("Employee deletion is not available yet");
   };
 
   const assignAssets = async (employeeId: string, assetIds: string[]) => {
-    if (assetIds.length === 0) return;
-    const asset = assets.find((a) => a.id === assetIds[0] || a.uuid === assetIds[0]);
-    const employee = employees.find((e) => e.id === employeeId || e.uuid === employeeId);
-    if (!asset || !employee) return;
-    try {
-      await apiCreateAssignment({
-        assetId: asset.uuid,
-        employeeId: employee.uuid,
-        assignedDate: todayStr(),
-      });
-      await refreshData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to assign asset");
-      throw err;
-    }
+    toast.error("Asset assignment is not available yet");
   };
 
   const addAsset = async (assetData: any) => {
-    try {
-      const newAsset = await apiCreateAsset(assetData);
-      await refreshData();
-      return newAsset;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add asset");
-      throw err;
-    }
+    toast.error("Asset management is not available yet");
+    throw new Error("Asset management is not available yet");
   };
 
   const retireAsset = async (id: string) => {
-    const asset = assets.find((a) => a.id === id || a.uuid === id);
-    if (!asset) return;
-    try {
-      await apiRetireAsset(asset.uuid);
-      await refreshData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to retire asset");
-      throw err;
-    }
+    toast.error("Asset management is not available yet");
   };
 
   const verifyOnboardingAsset = async (employeeId: string, approved: boolean, remarks: string, actor: string) => {
-    const employee = employees.find((e) => e.id === employeeId || e.uuid === employeeId);
-    if (!employee) return;
-    try {
-      await apiVerifyOnboardingAsset(employee.uuid, approved, remarks);
-      await refreshData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to verify onboarding asset");
-      throw err;
-    }
+    toast.error("Onboarding verification is not available yet");
   };
 
   const completeOnboardingAllocation = async (employeeId: string, assetId: string, remarks: string, actor: string) => {
-    const employee = employees.find((e) => e.id === employeeId || e.uuid === employeeId);
-    const asset = assets.find((a) => a.id === assetId || a.uuid === assetId);
-    if (!employee || !asset) return;
-    try {
-      await apiCompleteOnboardingAllocation(employee.uuid, asset.uuid, remarks);
-      await refreshData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to complete onboarding allocation");
-      throw err;
-    }
+    toast.error("Onboarding allocation is not available yet");
   };
 
   const fetchFullProfile = async (userUuid: string) => {
-    try {
-      const employee = employees.find((e) => e.id === userUuid || e.uuid === userUuid);
-      return await apiFetchFullProfile(employee?.uuid ?? userUuid);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load profile");
-      return null;
-    }
+    const employee = employees.find((e) => e.id === userUuid || e.uuid === userUuid);
+    return employee ?? null;
   };
 
   const fetchRecentEmployees = async () => {
-    try {
-      return await apiFetchRecentEmployees();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load recent employees");
-      return [];
-    }
+    return employees.slice(0, 10);
   };
 
   if (!hydrated) {

@@ -19,7 +19,7 @@ export interface AuthUser {
 interface AuthCtx {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, role?: Role) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
   forceChangePassword: (password: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -47,31 +47,28 @@ function removeToken() {
   localStorage.removeItem("itsm.token");
 }
 
+const ROLE_MAP: Record<string, Role> = {
+  Admin: "admin",
+  Manager: "asset_manager",
+  Employee: "employee",
+  "IT Support Team": "support",
+};
+
+function mapBackendRole(raw: string): Role {
+  return ROLE_MAP[raw] ?? (raw as Role) ?? "employee";
+}
+
 function mapBackendUser(bu: any): AuthUser {
+  const rawRole = bu.Role ?? bu.role ?? "Employee";
   return {
     id: bu.id ?? bu.display_id,
     display_id: bu.display_id ?? bu.id,
     name: bu.name,
     email: bu.email,
-    role: (bu.role as Role) ?? "employee",
-    avatar: bu.avatar ?? bu.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+    role: mapBackendRole(rawRole),
+    avatar: bu.avatar ?? (bu.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() ?? "NA"),
     must_change_password: bu.must_change_password ?? false,
   };
-}
-
-async function fetchMe(token: string): Promise<AuthUser | null> {
-  try {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body = await res.json();
-    if (res.ok && body.success) {
-      return mapBackendUser(body.data);
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -81,39 +78,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getToken();
     if (stored) {
-      fetchMe(stored).then((real) => {
-        if (real) {
-          setUser(real);
-        } else {
+      const cached = localStorage.getItem("itsm.employee");
+      if (cached) {
+        try {
+          setUser(mapBackendUser(JSON.parse(cached)));
+        } catch {
           removeToken();
-          localStorage.removeItem("itsm.role");
-          setUser(null);
+          localStorage.removeItem("itsm.employee");
         }
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
+      }
     }
+    setLoading(false);
   }, []);
 
   const refreshProfile = async () => {
-    const stored = getToken();
-    if (stored) {
-      const real = await fetchMe(stored);
-      if (real) {
-        setUser(real);
-      } else {
+    const cached = localStorage.getItem("itsm.employee");
+    if (cached) {
+      try {
+        setUser(mapBackendUser(JSON.parse(cached)));
+      } catch {
         removeToken();
-        localStorage.removeItem("itsm.role");
+        localStorage.removeItem("itsm.employee");
         setUser(null);
       }
     } else {
       setUser(null);
     }
-    setLoading(false);
   };
 
-  const login = async (email: string, password: string, role: Role = "admin") => {
+  const login = async (email: string, password: string): Promise<AuthUser> => {
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
@@ -121,14 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       const body = await res.json();
-      if (res.ok && body.success) {
-        const { access_token, user: backendUser } = body.data;
-        setToken(access_token);
-        localStorage.setItem("itsm.role", backendUser.role);
-        const mapped = mapBackendUser(backendUser);
+      if (res.ok && body.token && body.employee) {
+        setToken(body.token);
+        localStorage.setItem("itsm.employee", JSON.stringify(body.employee));
+        const mapped = mapBackendUser(body.employee);
         setUser(mapped);
         toast.success(`Welcome back, ${mapped.name}`);
-        return;
+        return mapped;
       }
       throw new Error(body.message || "Login failed");
     } catch (err: any) {
@@ -141,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     removeToken();
-    localStorage.removeItem("itsm.role");
+    localStorage.removeItem("itsm.employee");
     toast.info("Signed out of session");
   };
 
@@ -176,3 +168,21 @@ export function useAuth() {
   if (!c) throw new Error("useAuth outside provider");
   return c;
 }
+
+export function getStoredEmployee(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem("itsm.employee");
+    if (!raw) return null;
+    return mapBackendUser(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export const ROLE_ROUTE: Record<Role, string> = {
+  admin: "/admin",
+  asset_manager: "/manager",
+  employee: "/employee",
+  support: "/support",
+  lo_support: "/support",
+};

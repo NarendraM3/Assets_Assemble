@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell, Search, Moon, Sun, Settings, LogOut, MessageSquare, User as UserIcon, Boxes } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { useTheme } from "@/contexts/theme";
@@ -31,7 +31,7 @@ export function Topbar() {
         </div>
       </Link>
       <form
-        onSubmit={(e) => { e.preventDefault(); if (q) navigate({ to: "/search", search: { q } as never }); }}
+        onSubmit={(e) => { e.preventDefault(); if (q) navigate(`/search?q=${encodeURIComponent(q)}`); }}
         className="flex-1 max-w-lg relative"
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -107,7 +107,7 @@ export function Topbar() {
             <DropdownMenuItem asChild><Link to="/profile"><UserIcon className="h-4 w-4 mr-2" />Profile</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/settings"><Settings className="h-4 w-4 mr-2" />Settings</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => { logout(); navigate({ to: "/login" }); }} className="text-destructive">
+            <DropdownMenuItem onClick={() => { logout(); navigate("/login"); }} className="text-destructive">
               <LogOut className="h-4 w-4 mr-2" />Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
