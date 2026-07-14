@@ -15,8 +15,8 @@ export default function AssignmentsPage() {
   const columns: ColumnDef<Assignment>[] = [
     { accessorKey: "id", header: "Assignment ID" },
     { id: "asset", header: "Asset", cell: ({row}) => {
-      const a = assets.find(x=>x.id===row.original.assetId);
-      return <div><div className="font-medium">{a?.name}</div><div className="text-xs text-muted-foreground">{a?.id}</div></div>;
+      const a = assets.find(x=>x.assetId===row.original.assetId);
+      return <div><div className="font-medium">{a?.assetName}</div><div className="text-xs text-muted-foreground">{a?.assetId}</div></div>;
     }},
     { id: "employee", header: "Employee", cell: ({row}) => employees.find(e=>e.id===row.original.employeeId)?.name || row.original.employeeId },
     { accessorKey: "assignedDate", header: "Assigned Date" },

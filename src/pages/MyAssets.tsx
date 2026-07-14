@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import type { Asset } from "@/types/domain";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
+import { AssetWorkflowTimeline } from "@/components/common/AssetWorkflowTimeline";
+import { isAssignedToEmployee } from "@/lib/assets";
 
 export default function MyAssets() {
   const { assets } = useData();
@@ -19,14 +21,14 @@ export default function MyAssets() {
 
   const myAssets = useMemo(() => {
     if (!user) return [];
-    return assets.filter(a => a.status === "Assigned" && a.assignedTo === user.display_id);
+    return assets.filter(a => isAssignedToEmployee(a, user.display_id, user.id));
   }, [assets, user]);
 
   const columns: ColumnDef<Asset>[] = [
-    { accessorKey: "id", header: "Asset ID" },
-    { accessorKey: "name", header: "Name" },
+    { accessorKey: "assetId", header: "Asset ID" },
+    { accessorKey: "assetName", header: "Name" },
     { accessorKey: "category", header: "Category" },
-    { accessorKey: "serial", header: "Serial" },
+    { accessorKey: "serialNumber", header: "Serial" },
     { accessorKey: "warrantyExpiry", header: "Warranty" },
     { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status}/> },
     {
@@ -67,7 +69,7 @@ export default function MyAssets() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {myAssets.map(a => (
             <Card
-              key={a.id}
+              key={a.assetId}
               onClick={() => setSelectedAsset(a)}
               className="p-4 hover:shadow-md hover:border-primary/45 cursor-pointer transition-all active:scale-[0.99] group"
             >
@@ -76,14 +78,21 @@ export default function MyAssets() {
                   <Package className="h-5 w-5"/>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{a.name}</div>
-                  <div className="text-xs text-muted-foreground">{a.id}</div>
+                  <div className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{a.assetName}</div>
+                  <div className="text-xs text-muted-foreground">{a.assetId}</div>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-y-2 text-xs border-t pt-3 border-dashed">
-                <span className="text-muted-foreground">Serial</span><span className="font-medium truncate">{a.serial}</span>
+                <span className="text-muted-foreground">Serial</span><span className="font-medium truncate">{a.serialNumber}</span>
+                <span className="text-muted-foreground">Category</span><span className="font-medium">{a.category}</span>
+                <span className="text-muted-foreground">Manufacturer</span><span className="font-medium">{a.brand}</span>
+                <span className="text-muted-foreground">Model</span><span className="font-medium">{a.model}</span>
                 <span className="text-muted-foreground">Location</span><span className="font-medium">{a.location}</span>
+                <span className="text-muted-foreground">Assigned</span><span className="font-medium">{a.assignedAt || "-"}</span>
                 <span className="text-muted-foreground">Warranty</span><span className="font-medium">{a.warrantyExpiry}</span>
+              </div>
+              <div className="mt-3 border-t pt-3">
+                <AssetWorkflowTimeline status={a.status} />
               </div>
               <div className="mt-3.5 flex items-center justify-between border-t pt-3">
                 <StatusBadge status={a.status}/>
@@ -120,15 +129,15 @@ export default function MyAssets() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{selectedAsset.category}</span>
-                  <h4 className="font-semibold text-base truncate text-foreground">{selectedAsset.name}</h4>
-                  <p className="text-xs font-mono text-muted-foreground mt-0.5">Asset ID: {selectedAsset.id}</p>
+                  <h4 className="font-semibold text-base truncate text-foreground">{selectedAsset.assetName}</h4>
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">Asset ID: {selectedAsset.assetId}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-background shadow-sm">
                 <div>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Manufacturer</span>
-                  <span className="font-medium text-foreground block mt-1">{selectedAsset.manufacturer || "Acme Standard"}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Brand</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.brand || "Acme Standard"}</span>
                 </div>
 
                 <div>
@@ -138,7 +147,7 @@ export default function MyAssets() {
 
                 <div className="col-span-2 border-t pt-3 border-dashed">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5" /> Serial Number</span>
-                  <span className="font-mono text-foreground font-semibold block mt-1">{selectedAsset.serial}</span>
+                  <span className="font-mono text-foreground font-semibold block mt-1">{selectedAsset.serialNumber}</span>
                 </div>
 
                 <div className="border-t pt-3 border-dashed">
@@ -158,9 +167,7 @@ export default function MyAssets() {
 
                 <div className="border-t pt-3 border-dashed">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Value / Cost</span>
-                  <span className="font-semibold text-primary block mt-1">
-                    {selectedAsset.cost ? `$${selectedAsset.cost.toLocaleString()}` : "Not listed"}
-                  </span>
+                  <span className="font-semibold text-primary block mt-1">-</span>
                 </div>
               </div>
 
@@ -170,8 +177,15 @@ export default function MyAssets() {
                   <span className="text-xs text-muted-foreground">Currently active on your profile.</span>
                 </div>
                 <Button size="xs" variant="link" className="text-xs p-0 h-auto flex items-center gap-1">
-                  <Wrench className="h-3 w-3" /> Get Support
+                  <Wrench className="h-3 w-3" /> Get Help
                 </Button>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-background shadow-sm">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Workflow Timeline
+                </div>
+                <AssetWorkflowTimeline status={selectedAsset.status} />
               </div>
             </div>
           )}

@@ -31,15 +31,15 @@ export function Sidebar({ collapsed, setCollapsed }: { collapsed: boolean; setCo
       </div>
 
       <nav className="flex-1 overflow-y-auto scrollbar-thin py-3">
-        {groups.map((g) => (
-          <div key={g.label} className="mb-4">
-            {!collapsed && (
+        {(groups ?? []).map((g) => (
+          <div key={g?.label ?? "nav-group"} className="mb-4">
+            {!collapsed && g?.label && (
               <div className="px-4 mb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                 {g.label}
               </div>
             )}
             <ul className="space-y-0.5 px-2">
-              {g.items.map((item) => {
+              {(g?.items ?? []).map((item) => {
                 const active = pathname === item.to;
                 const Icon = item.icon;
                 return (

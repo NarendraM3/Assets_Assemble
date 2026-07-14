@@ -21,21 +21,13 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Users,
   Warehouse,
 } from "lucide-react";
 import { useAuth, ROLE_ROUTE, getStoredEmployee } from "@/contexts/auth";
-import type { Role } from "@/types/domain";
+import { getToken } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const schema = z.object({
   email: z.string().trim().min(1, "Enter a username or email"),
@@ -43,13 +35,6 @@ const schema = z.object({
 });
 
 type FormV = z.infer<typeof schema>;
-
-const ROLES: { id: Role; label: string }[] = [
-  { id: "employee", label: "Employee" },
-  { id: "lo_support", label: "LO Support" },
-  { id: "asset_manager", label: "Manager" },
-  { id: "admin", label: "Admin" },
-];
 
 const assetIcons = [
   { icon: Monitor, x: "8%", y: "20%", delay: 0, size: "h-5 w-5" },
@@ -275,7 +260,7 @@ function LeftPanel() {
             transition={{ duration: 0.65, delay: 0.32 }}
             className="mt-6 max-w-2xl text-base leading-8 text-slate-200/72"
           >
-            Track IT assets, assign equipment, manage inventory, monitor lifecycle, handle support
+            Track IT assets, assign equipment, manage inventory, monitor lifecycle, handle service
             tickets, and gain complete visibility across your organization.
           </motion.p>
         </div>
@@ -296,7 +281,6 @@ function LeftPanel() {
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>("employee");
 
   const {
     register,
@@ -308,18 +292,29 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (localStorage.getItem("itsm.token")) {
+    if (getToken()) {
       const emp = getStoredEmployee();
       navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
     }
   }, [navigate]);
 
+  const [loginError, setLoginError] = useState("");
+
   const onSubmit = async (v: FormV) => {
+    setLoginError("");
     try {
-      const u = await login(v.email, v.password);
-      navigate(ROLE_ROUTE[u.role], { replace: true });
-    } catch {
-      /* toast error is already handled by login method in AuthContext */
+      const result = await login(v.email, v.password);
+      if (result.forcePasswordChange) {
+        navigate("/change-password", { replace: true });
+        return;
+      }
+      if (result.user?.role && ROLE_ROUTE[result.user.role]) {
+        navigate(ROLE_ROUTE[result.user.role], { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (err: any) {
+      setLoginError(err.message || "Login failed");
     }
   };
 
@@ -406,29 +401,11 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-sm font-semibold text-slate-700">
-                    Login As
-                  </Label>
-                  <div className="relative">
-                    <Users className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                      <SelectTrigger
-                        id="role"
-                        className="h-12 rounded-2xl border-slate-200 bg-white/86 pl-11 text-sm shadow-sm transition duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/12"
-                      >
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 bg-white shadow-xl">
-                        {ROLES.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {loginError && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                    {loginError}
                   </div>
-                </div>
+                )}
 
                 <div className="pt-2">
                   <Button

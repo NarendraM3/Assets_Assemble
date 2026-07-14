@@ -9,8 +9,9 @@ export default function DashboardRouter() {
   if (!user) return null;
   switch (user.role) {
     case "employee": return <EmployeeDashboard />;
-    case "support": return <SupportDashboard />;
+    case "it_support_team": return <SupportDashboard />;
     case "asset_manager": return <AssetManagerDashboard />;
     case "admin": return <AdminDashboard />;
+    default: return <EmployeeDashboard />;
   }
 }

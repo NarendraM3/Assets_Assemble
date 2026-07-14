@@ -17,9 +17,10 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   pageSize?: number;
   toolbar?: React.ReactNode;
+  emptyMessage?: string;
 }
 
-export function DataTable<T>({ data, columns, searchPlaceholder = "Search…", onRowClick, pageSize = 10, toolbar }: DataTableProps<T>) {
+export function DataTable<T>({ data, columns, searchPlaceholder = "Search…", onRowClick, pageSize = 10, toolbar, emptyMessage = "No records found." }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -89,7 +90,7 @@ export function DataTable<T>({ data, columns, searchPlaceholder = "Search…", o
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center text-muted-foreground py-10">
-                  No records found.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}

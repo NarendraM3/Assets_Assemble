@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, Save, Trash2 } from "lucide-react";
+import { Upload, Save, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -14,14 +14,20 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
+import { fetchAssignedAssets } from "@/services/data";
+import type { Asset } from "@/types/domain";
+
+const DEFAULT_TICKET_CATEGORIES = [
+  "Hardware", "Software", "Network", "Access",
+  "Email", "Peripheral", "Security", "Other",
+];
 
 const schema = z.object({
   title: z.string().trim().min(5, "Title must be at least 5 characters").max(120),
   description: z.string().trim().min(15, "Please describe the issue in detail").max(2000),
-  priority: z.enum(["Low", "Medium", "High", "Critical"]),
   category: z.string().min(1, "Select a category"),
   assetId: z.string().optional(),
 });
@@ -30,67 +36,142 @@ type FormV = z.infer<typeof schema>;
 export default function RaiseTicket() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const { assets, tickets, createTicket, uploadFiles } = useData();
+  const { tickets, createTicket, uploadFiles } = useData();
+  const [assignedAssets, setAssignedAssets] = useState<Asset[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(true);
   const TICKET_CATEGORIES = useMemo(() => {
     const cats = new Set(tickets.map(t => t.category).filter(Boolean));
-    return Array.from(cats).sort();
+    const merged = new Set([...DEFAULT_TICKET_CATEGORIES, ...cats]);
+    return Array.from(merged).sort();
   }, [tickets]);
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAssetsLoading(true);
+    fetchAssignedAssets().then(assets => {
+      if (!cancelled) {
+        setAssignedAssets(assets);
+        setAssetsLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setAssetsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormV>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: "Medium", category: "", assetId: "" },
+    defaultValues: { category: "", assetId: "" },
   });
-  const priority = watch("priority");
   const category = watch("category");
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    setUploading(true);
-    try {
-      const urls = await uploadFiles(e.target.files);
-      if (urls.length > 0) {
-        setAttachments(prev => [...prev, ...urls]);
-        toast.success(`${urls.length} attachment(s) uploaded successfully`);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUploading(false);
-    }
+    const newFiles = Array.from(e.target.files);
+    setSelectedFiles(prev => [...prev, ...newFiles]);
   };
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    if (attachments.length > 0) {
+      setAttachments(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const onSubmit = async (v: FormV) => {
     try {
-      const ticket = await createTicket({
+      const storedRaw = JSON.parse(localStorage.getItem("employee") || "{}");
+      const employeeId = storedRaw?.EmployeeId || storedRaw?.display_id || user?.display_id || user?.id || "";
+      const department = storedRaw?.department || "";
+
+      if (!v.title || !v.description || !v.category || !department) {
+        toast.error("All required fields must be filled");
+        return;
+      }
+
+      const payload = {
         title: v.title,
         description: v.description,
-        priority: v.priority,
+        priority: "Medium" as const,
         category: v.category,
+        department,
+        employeeId,
+        created_by_id: employeeId,
         assetId: v.assetId || null,
         createdBy: user?.name || "Employee User",
         attachments,
-      }, user?.name || "Employee User");
+      };
+      const ticket = await createTicket(payload, user?.name || "Employee User");
+
+      console.log("Ticket Response:", ticket);
+
+      const TicketId =
+        (ticket as any)?.id ||
+        (ticket as any)?.TicketId ||
+        (ticket as any)?.ticketId ||
+        (ticket as any)?.uuid ||
+        (ticket as any)?.ticket?.TicketId ||
+        (ticket as any)?.ticket?.ticketId ||
+        (ticket as any)?.data?.ticketId ||
+        (ticket as any)?.data?.TicketId ||
+        (ticket as any)?.data?.ticket?.TicketId ||
+        (ticket as any)?.data?.uuid;
+
+      console.log("TicketId:", TicketId);
+
+      if (!TicketId) {
+        toast.error("Ticket was created but no ticket ID was returned. Please contact IT Support Team.");
+        return;
+      }
+
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        try {
+          const storedRaw = JSON.parse(localStorage.getItem("employee") || "{}");
+          const EmployeeId = (user as any)?.EmployeeId || storedRaw?.EmployeeId || user?.display_id || user?.id || "";
+
+          console.log("TicketId:", TicketId);
+          console.log("EmployeeId:", EmployeeId);
+
+          if (!TicketId) {
+            throw new Error("TicketId is missing");
+          }
+          if (!EmployeeId) {
+            throw new Error("EmployeeId is missing");
+          }
+
+          const urls = await uploadFiles(selectedFiles, TicketId, EmployeeId);
+          if (urls.length > 0) {
+            setAttachments(urls);
+          }
+        } catch (uploadErr: any) {
+          toast.error(uploadErr.message || "File upload failed after ticket creation");
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
 
       toast.success("Ticket submitted - we'll get back to you shortly", {
-        description: `Priority: ${v.priority} - Category: ${v.category}`,
+        description: `Category: ${v.category}`,
       });
       reset();
       setAttachments([]);
-      nav("/my-tickets");
-    } catch (err) {
+      setSelectedFiles([]);
+      nav("/my-tickets?refresh=1");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create ticket");
     }
   };
   const saveDraft = () => toast.info("Draft saved locally");
 
   return (
     <>
-      <PageHeader title="Raise a Ticket" description="Report an issue and our support team will respond quickly." />
+      <PageHeader title="Raise a Ticket" description="Report an issue and our IT Support Team will respond quickly." />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-2 space-y-4">
           <Card className="p-6 space-y-4">
@@ -99,33 +180,36 @@ export default function RaiseTicket() {
               <Input className="mt-1.5" placeholder="e.g. Laptop won't boot after update" {...register("title")} />
               {errors.title && <div className="text-xs text-destructive mt-1">{errors.title.message}</div>}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={v => setValue("priority", v as FormV["priority"])}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Low", "Medium", "High", "Critical"].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select value={category} onValueChange={v => setValue("category", v)}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a category" /></SelectTrigger>
-                  <SelectContent>
-                    {TICKET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {errors.category && <div className="text-xs text-destructive mt-1">{errors.category.message}</div>}
-              </div>
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={v => setValue("category", v)}>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a category" /></SelectTrigger>
+                <SelectContent>
+                  {TICKET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {errors.category && <div className="text-xs text-destructive mt-1">{errors.category.message}</div>}
             </div>
             <div>
               <Label>Related Asset (optional)</Label>
-              <Select value={watch("assetId")} onValueChange={v => setValue("assetId", v)}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Attach to an asset" /></SelectTrigger>
+              <Select value={watch("assetId") || ""} onValueChange={v => setValue("assetId", v || "")}>
+                <SelectTrigger className="mt-1.5" disabled={assetsLoading}>
+                  <SelectValue placeholder={assetsLoading ? "Loading assets..." : "Attach to an asset"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {assets.slice(0, 20).map(a => <SelectItem key={a.id} value={a.id}>{a.id} - {a.name}</SelectItem>)}
+                  {assetsLoading ? (
+                    <SelectItem value="__loading__" disabled className="cursor-default">
+                      <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading assets...</span>
+                    </SelectItem>
+                  ) : assignedAssets.length === 0 ? (
+                    <SelectItem value="__empty__" disabled className="cursor-default text-muted-foreground">
+                      No assigned assets found
+                    </SelectItem>
+                  ) : (
+                    assignedAssets.map(a => (
+                      <SelectItem key={a.assetId} value={a.assetId}>{a.assetId} - {a.assetName}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -145,12 +229,16 @@ export default function RaiseTicket() {
                 <input type="file" multiple className="hidden" onChange={handleFileChange} disabled={uploading} />
               </label>
 
-              {attachments.length > 0 && (
+              {(selectedFiles.length > 0 || attachments.length > 0) && (
                 <div className="mt-3 space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground">Uploaded Attachments ({attachments.length})</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    {attachments.length > 0 ? `Uploaded Attachments (${attachments.length})` : `Selected Files (${selectedFiles.length})`}
+                  </Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {attachments.map((url, idx) => {
-                      const fileName = url.substring(url.indexOf("_") + 1);
+                    {(attachments.length > 0 ? attachments : selectedFiles).map((item, idx) => {
+                      const fileName = typeof item === "string"
+                        ? item.substring(item.indexOf("_") + 1)
+                        : item.name;
                       return (
                         <div key={idx} className="flex items-center justify-between p-2 rounded-md border bg-muted/40 text-xs">
                           <span className="font-medium truncate max-w-[220px]">{fileName}</span>

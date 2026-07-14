@@ -13,9 +13,17 @@ const MAP: Record<string, string> = {
   "Resolved": "bg-success/15 text-success border-success/20",
   "Closed": "bg-muted text-muted-foreground border",
   // asset status
+  "Requested": "bg-primary/15 text-primary border-primary/20",
+  "Approved": "bg-success/15 text-success border-success/20",
+  "Ready for Pickup": "bg-info/15 text-info border-info/20",
+  "Delivered": "bg-success/15 text-success border-success/20",
+  "Returned": "bg-muted text-muted-foreground border",
   "Available": "bg-success/15 text-success border-success/20",
   "Maintenance": "bg-warning/15 text-warning border-warning/20",
+  "Under Maintenance": "bg-warning/15 text-warning border-warning/20",
   "Retired": "bg-muted text-muted-foreground border",
+  "Out of Stock": "bg-destructive/15 text-destructive border-destructive/20",
+  "No Stock": "bg-destructive/15 text-destructive border-destructive/20",
   // priority
   "Low": "bg-muted text-muted-foreground border",
   "Medium": "bg-info/15 text-info border-info/20",
@@ -29,11 +37,11 @@ const MAP: Record<string, string> = {
   "Active": "bg-success/15 text-success border-success/20",
   "Inactive": "bg-muted text-muted-foreground border",
   "On Leave": "bg-warning/15 text-warning border-warning/20",
-  "Returned": "bg-muted text-muted-foreground border",
   "Transferred": "bg-info/15 text-info border-info/20",
   "Completed": "bg-success/15 text-success border-success/20",
   "Scheduled": "bg-info/15 text-info border-info/20",
   "Pending": "bg-warning/15 text-warning border-warning/20",
+  "Rejected": "bg-destructive/15 text-destructive border-destructive/20",
 };
 
 export function StatusBadge({ status }: { status: string }) {

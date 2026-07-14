@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Package, Ticket as TicketIcon, User, Users,
   Building2, Tags, Settings as SettingsIcon, FileBarChart,
   ClipboardList, Wrench, ShoppingBag, BookOpen, PlusCircle, ScrollText, Calendar,
+  Bell, ListTodo,
 } from "lucide-react";
 
 export interface NavItem {
@@ -25,7 +26,7 @@ export const NAV: Record<Role, NavGroup[]> = {
       ]
     },
     {
-      label: "Support", items: [
+      label: "IT Support Team", items: [
         { to: "/raise-ticket", label: "Raise Ticket", icon: PlusCircle },
         { to: "/my-tickets", label: "My Tickets", icon: TicketIcon },
       ]
@@ -36,31 +37,11 @@ export const NAV: Record<Role, NavGroup[]> = {
       ]
     },
   ],
-  support: [
-    {
-      label: "Overview", items: [
-        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/allocation-onboarding", label: "Asset Allocation Onboarding", icon: ClipboardList },
-      ]
-    },
-    {
-      label: "Tickets", items: [
-        { to: "/assigned-tickets", label: "Assigned Tickets", icon: ClipboardList },
-        { to: "/all-tickets", label: "All Tickets", icon: TicketIcon },
-      ]
-    },
-    {
-      label: "Knowledge", items: [
-        { to: "/maintenance-history", label: "Maintenance History", icon: Wrench },
-        { to: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
-      ]
-    },
-  ],
   asset_manager: [
     {
       label: "Overview", items: [
         { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/onboarding-verification", label: "Employee Onboarding Verification", icon: ClipboardList },
+        { to: "/onboarding-verification", label: "Onboarding Verification", icon: ClipboardList },
       ]
     },
     {
@@ -82,23 +63,30 @@ export const NAV: Record<Role, NavGroup[]> = {
       ]
     },
   ],
-  lo_support: [
+  it_support_team: [
     {
       label: "Overview", items: [
         { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/allocation-onboarding", label: "Asset Allocation Onboarding", icon: ClipboardList },
+        { to: "/employee-onboarding", label: "Employee Onboarding", icon: ClipboardList },
       ]
     },
     {
       label: "Tickets", items: [
+        { to: "/all-tickets", label: "Ticket Queue", icon: ListTodo },
         { to: "/assigned-tickets", label: "Assigned Tickets", icon: ClipboardList },
-        { to: "/all-tickets", label: "All Tickets", icon: TicketIcon },
       ]
     },
     {
-      label: "Knowledge", items: [
-        { to: "/maintenance-history", label: "Maintenance History", icon: Wrench },
-        { to: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
+      label: "Assets", items: [
+        { to: "/assets", label: "Asset Inventory", icon: Package },
+        { to: "/assignments", label: "Asset Assignments", icon: ClipboardList },
+        { to: "/maintenance", label: "Maintenance", icon: Wrench },
+      ]
+    },
+    {
+      label: "Account", items: [
+        { to: "/notifications", label: "Notifications", icon: Bell },
+        { to: "/profile", label: "My Profile", icon: User },
       ]
     },
   ],

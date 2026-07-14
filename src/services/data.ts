@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { Employee } from "@/types/domain";
+import type { Employee, Asset } from "@/types/domain";
 
 interface PaginatedData<T> {
   items: T[];
@@ -31,7 +31,7 @@ interface BackendUser {
 }
 
 function initials(name: string) {
-  return name
+  return (name ?? "")
     .split(" ")
     .map((part) => part[0])
     .join("")
@@ -39,13 +39,42 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+export function normalizeUser(raw: any): BackendUser {
+  if (raw.EmployeeId !== undefined || raw.FirstName !== undefined) {
+    const firstName = raw.FirstName ?? "";
+    const lastName = raw.LastName ?? "";
+    return {
+      id: raw.EmployeeId ?? raw.id,
+      display_id: raw.EmployeeId ?? raw.display_id,
+      name: `${firstName} ${lastName}`.trim() || raw.name || "",
+      email: raw.Email ?? raw.email ?? "",
+      role: raw.Role ?? raw.role,
+      department: raw.Department ?? raw.department,
+      designation: raw.designation ?? raw.Designation,
+      manager: raw.manager ?? raw.Manager,
+      location: raw.Location ?? raw.location,
+      status: raw.Status ?? raw.status,
+      avatar: raw.avatar,
+      phone: raw.phone ?? raw.Phone,
+      join_date: raw.CreatedAt ?? raw.join_date ?? raw.JoinDate,
+      allocation_date: raw.allocation_date ?? raw.AllocationDate,
+      allocation_time: raw.allocation_time ?? raw.AllocationTime,
+      allocation_status: raw.allocation_status,
+      required_asset_category: raw.required_asset_category ?? raw.RequiredHardwareCategory,
+      allocated_asset_details: raw.allocated_asset_details,
+      allocation_history: raw.allocation_history,
+    };
+  }
+  return raw as BackendUser;
+}
+
 export function mapEmployee(user: BackendUser): Employee {
   return {
-    id: user.display_id ?? user.id,
-    uuid: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role as Employee["role"],
+    id: user.display_id ?? user.id ?? "",
+    uuid: user.id ?? user.display_id ?? "",
+    name: user.name ?? "",
+    email: user.email ?? "",
+    role: (user.role as Employee["role"]) ?? "employee",
     department: user.department ?? "",
     designation: user.designation ?? "",
     manager: user.manager ?? "",
@@ -63,25 +92,168 @@ export function mapEmployee(user: BackendUser): Employee {
   };
 }
 
-export async function fetchEmployees() {
-  const data = await apiFetch<PaginatedData<BackendUser>>("/admin/employees?limit=10000");
-  return data.items.map(mapEmployee);
+function extractEmployeeArray(response: any): any[] {
+  console.log("[fetchEmployees] Raw API response:", JSON.stringify(response));
+
+  if (!response) {
+    console.warn("[fetchEmployees] Response is null or undefined");
+    return [];
+  }
+
+  if (Array.isArray(response)) {
+    console.log(`[fetchEmployees] Response is a direct array with ${response.length} items`);
+    return response;
+  }
+
+  if (response.items && Array.isArray(response.items)) {
+    console.log(`[fetchEmployees] Found response.items array with ${response.items.length} items`);
+    return response.items;
+  }
+
+  if (response.data && Array.isArray(response.data)) {
+    console.log(`[fetchEmployees] Found response.data array with ${response.data.length} items`);
+    return response.data;
+  }
+
+  if (response.data?.items && Array.isArray(response.data.items)) {
+    console.log(`[fetchEmployees] Found response.data.items array with ${response.data.items.length} items`);
+    return response.data.items;
+  }
+
+  if (response.employees && Array.isArray(response.employees)) {
+    console.log(`[fetchEmployees] Found response.employees array with ${response.employees.length} items`);
+    return response.employees;
+  }
+
+  if (response.employeeList && Array.isArray(response.employeeList)) {
+    console.log(`[fetchEmployees] Found response.employeeList array with ${response.employeeList.length} items`);
+    return response.employeeList;
+  }
+
+  const possibleKeys = Object.keys(response).filter(k => Array.isArray(response[k]));
+  if (possibleKeys.length > 0) {
+    console.log(`[fetchEmployees] No standard key found, using first array key "${possibleKeys[0]}" with ${response[possibleKeys[0]].length} items`);
+    return response[possibleKeys[0]];
+  }
+
+  console.warn("[fetchEmployees] Could not extract employee array from response:", response);
+  return [];
+}
+
+export async function fetchEmployees(): Promise<Employee[]> {
+  console.log("[fetchEmployees] Starting API call to GET /admin/employees?limit=10000");
+
+  const rawResponse = await apiFetch<any>("/admin/employees?limit=10000");
+
+  console.log("[fetchEmployees] Raw response after apiFetch unwrap:", rawResponse);
+
+  const rawArray = extractEmployeeArray(rawResponse);
+
+  console.log(`[fetchEmployees] Extracted ${rawArray.length} raw employee records`);
+
+  if (rawArray.length > 0) {
+    console.log("[fetchEmployees] Sample raw record:", JSON.stringify(rawArray[0]));
+  }
+
+  const employees = rawArray.map((raw) => mapEmployee(normalizeUser(raw)));
+
+  console.log(`[fetchEmployees] Mapped ${employees.length} employees successfully`);
+  if (employees.length > 0) {
+    console.log("[fetchEmployees] Sample mapped employee:", JSON.stringify(employees[0]));
+  }
+
+  return employees;
 }
 
 export async function fetchFullProfile() {
   return apiFetch<any>("/profile");
 }
 
-export async function createEmployee(payload: any) {
-  const data = await apiFetch<BackendUser>("/admin/employees/register", {
-    method: "POST",
-    body: JSON.stringify({
-      ...payload,
-      join_date: payload.joinDate,
-      allocation_date: payload.allocationDate,
-      allocation_time: payload.allocationTime,
-      required_asset_category: payload.requiredAssetCategory,
-    }),
-  });
-  return mapEmployee(data);
+export interface RegistrationResult {
+  EmployeeId: string;
+  TemporaryPassword: string;
+  Note?: string;
+}
+
+export class RegistrationError extends Error {
+  status: number;
+  body: any;
+  constructor(message: string, status: number, body?: any) {
+    super(message);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export async function fetchAssignedAssets(): Promise<any[]> {
+  try {
+    const data = await apiFetch<any>("/profile");
+    return data?.assigned_assets ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createEmployee(payload: any): Promise<RegistrationResult> {
+  const parts = (payload.name || "").trim().split(/\s+/);
+  const firstName = parts[0] || "";
+  const lastName = parts.slice(1).join(" ") || "-";
+
+  const body = {
+    FirstName: firstName,
+    LastName: lastName,
+    Email: payload.email,
+    Role: payload.role,
+    Department: payload.department,
+    Location: payload.location,
+    Designation: payload.designation,
+    Phone: payload.phone,
+    Manager: payload.manager,
+    JoinDate: payload.joinDate,
+    AllocationDate: payload.allocationDate,
+    AllocationTime: payload.allocationTime,
+    RequiredHardwareCategory: payload.requiredAssetCategory,
+    Status: payload.status || "Active",
+  };
+
+  console.log("[Employee Registration] Request Payload:", body);
+
+  try {
+    const responseBody = await apiFetch<any>("/admin/employees/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    console.log("[Employee Registration] API Response:", responseBody);
+
+    const employeeId =
+      responseBody?.EmployeeId ??
+      responseBody?.data?.EmployeeId ??
+      responseBody?.employeeId ??
+      "";
+
+    const tempPassword =
+      responseBody?.TemporaryPassword ??
+      responseBody?.data?.TemporaryPassword ??
+      responseBody?.temporaryPassword ??
+      "";
+
+    const note =
+      responseBody?.Note ?? responseBody?.data?.Note ?? responseBody?.note;
+
+    console.log("[Employee Registration] Extracted Result:", { employeeId, tempPassword, note });
+
+    return {
+      EmployeeId: employeeId,
+      TemporaryPassword: tempPassword,
+      Note: note,
+    };
+  } catch (err: any) {
+    console.error("[Employee Registration] Error:", err);
+    throw new RegistrationError(
+      err.message || "Unable to reach the server. Please check your connection and try again.",
+      err.status ?? 0,
+      err.body,
+    );
+  }
 }

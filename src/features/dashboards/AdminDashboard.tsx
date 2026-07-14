@@ -1,4 +1,4 @@
-import { Users, Package, TicketIcon, Timer, Download, FileSpreadsheet, FileText, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays, KeyRound, User, Mail, Phone, Briefcase, UserCheck, Clock, MapPin, Calendar, HelpCircle, Eye } from "lucide-react";
+import { Users, Package, TicketIcon, Timer, Download, FileSpreadsheet, FileText, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays, KeyRound, User, Mail, Phone, Briefcase, UserCheck, Clock, MapPin, Calendar, HelpCircle, Eye, Loader2, AlertTriangle } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
+import { getRoleLabel } from "@/lib/utils";
 import { toast } from "sonner";
 import { countBy, monthKey } from "@/lib/live-data";
 
@@ -22,11 +23,20 @@ const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const { employees, assets, tickets, fetchFullProfile } = useData();
+  const { employees, assets, tickets, loading, error, refreshData, fetchFullProfile } = useData();
+
+  console.log("[AdminDashboard] Render — employees:", employees.length, "assets:", assets.length, "tickets:", tickets.length, "loading:", loading, "error:", error);
 
   const [selectedEmp, setSelectedEmp] = useState<any | null>(null);
   const [fullProfile, setFullProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
   useEffect(() => {
     if (!selectedEmp) {
@@ -46,7 +56,7 @@ export function AdminDashboard() {
 
   const failures = countBy(
     tickets.filter((ticket) => ticket.assetId),
-    (ticket) => assets.find((asset) => asset.id === ticket.assetId || asset.uuid === ticket.assetId)?.category,
+    (ticket) => assets.find((asset) => asset.assetId === ticket.assetId)?.category,
   ).map((item) => ({ c: item.name, v: item.value }));
   const catData = countBy(tickets, (ticket) => ticket.category).map((item, i) => ({
     name: item.name, value: item.value, fill: COLORS[i%COLORS.length],
@@ -97,6 +107,25 @@ export function AdminDashboard() {
           </>
         }
       />
+
+      {loading && (
+        <div className="flex items-center justify-center py-12 mb-6 rounded-lg border bg-card">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="text-sm">Loading dashboard data...</span>
+          </div>
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="flex items-center gap-3 p-4 mb-6 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive text-sm">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => refreshData()}>Retry</Button>
+        </div>
+      )}
+
+      {!loading && (<>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Employees" value={employees.length} icon={Users} tone="primary" delta={{value:"+12 this month", up:true}} index={0}/>
         <StatCard label="Assets" value={assets.length.toLocaleString()} icon={Package} tone="info" delta={{value:"+34 this month", up:true}} index={1}/>
@@ -204,7 +233,7 @@ export function AdminDashboard() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-
+      </>)}
       {/* Employee Full Profile Drawer */}
       <Sheet open={!!selectedEmp} onOpenChange={(o) => !o && setSelectedEmp(null)}>
         <SheetContent className="sm:max-w-[550px] overflow-y-auto h-full pr-6">
@@ -223,7 +252,7 @@ export function AdminDashboard() {
               <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-lg border">
                 <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-inner">
                   <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-                    {selectedEmp.avatar || selectedEmp.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                    {selectedEmp.avatar || (selectedEmp.name ?? "").split(" ").map((n: string) => n[0]).join("").toUpperCase() || "NA"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
@@ -231,7 +260,7 @@ export function AdminDashboard() {
                   <h4 className="font-bold text-lg text-foreground truncate">{selectedEmp.name}</h4>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="font-mono text-xs text-muted-foreground">{selectedEmp.id}</span>
-                    <Badge variant="secondary" className="capitalize text-[10px] py-0 px-1.5">{selectedEmp.role}</Badge>
+                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5">{getRoleLabel(selectedEmp.role)}</Badge>
                     <StatusBadge status={selectedEmp.status} />
                   </div>
                 </div>
@@ -249,28 +278,28 @@ export function AdminDashboard() {
                         <Briefcase className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Department</span>
-                          <span className="font-medium text-foreground">{fullProfile.user.department || "Not assigned"}</span>
+                          <span className="font-medium text-foreground">{fullProfile?.user?.department || fullProfile?.department || "Not assigned"}</span>
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <UserCheck className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Reporting Manager</span>
-                          <span className="font-medium text-foreground">{fullProfile.user.manager || "Not assigned"}</span>
+                          <span className="font-medium text-foreground">{fullProfile?.user?.manager ?? fullProfile?.manager ?? "Not assigned"}</span>
                         </div>
                       </div>
                       <div className="flex gap-2 border-t pt-3 border-dashed col-span-2 sm:col-span-1">
                         <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Location</span>
-                          <span className="font-medium text-foreground">{fullProfile.user.location || "Not assigned"}</span>
+                          <span className="font-medium text-foreground">{fullProfile?.user?.location ?? fullProfile?.location ?? "Not assigned"}</span>
                         </div>
                       </div>
                       <div className="flex gap-2 border-t pt-3 border-dashed col-span-2 sm:col-span-1">
                         <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Joining Date</span>
-                          <span className="font-medium text-foreground">{fullProfile.user.join_date || "Not assigned"}</span>
+                          <span className="font-medium text-foreground">{fullProfile?.user?.join_date ?? fullProfile?.joinDate ?? "Not assigned"}</span>
                         </div>
                       </div>
                     </div>
@@ -284,14 +313,14 @@ export function AdminDashboard() {
                         <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Email Address</span>
-                          <span className="font-medium text-foreground block truncate">{fullProfile.user.email}</span>
+                          <span className="font-medium text-foreground block truncate">{fullProfile?.user?.email ?? fullProfile?.email ?? "Not provided"}</span>
                         </div>
                       </div>
                       <div className="flex gap-2 border-t pt-3 border-dashed col-span-2 sm:col-span-1">
                         <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Phone Number</span>
-                          <span className="font-medium text-foreground">{fullProfile.user.phone || "Not provided"}</span>
+                          <span className="font-medium text-foreground">{fullProfile?.user?.phone ?? fullProfile?.phone ?? "Not provided"}</span>
                         </div>
                       </div>
                       <div className="flex gap-2 border-t pt-3 border-dashed col-span-2 sm:col-span-1">
@@ -310,8 +339,8 @@ export function AdminDashboard() {
                           <KeyRound className="h-4 w-4 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">Credentials Temporary Reset Status:</span>
                         </div>
-                        <Badge variant={fullProfile.user.must_change_password ? "warning" : "success"} className="text-[10px]">
-                          {fullProfile.user.must_change_password ? "Reset Code Pending" : "Secured"}
+                        <Badge variant={(fullProfile?.user?.must_change_password ?? fullProfile?.must_change_password) ? "warning" : "success"} className="text-[10px]">
+                          {(fullProfile?.user?.must_change_password ?? fullProfile?.must_change_password) ? "Reset Code Pending" : "Secured"}
                         </Badge>
                       </div>
                     </div>

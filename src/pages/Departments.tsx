@@ -28,7 +28,7 @@ export default function DepartmentsPage() {
     const employeeNames = new Set(deptEmployees.map((e) => e.name));
     const deptAssets = assets.filter((a) => a.assignedTo && employeeIds.has(a.assignedTo));
     const deptTickets = tickets.filter((t) => employeeNames.has(t.createdBy));
-    const totalCost = deptAssets.reduce((sum, a) => sum + a.cost, 0);
+    const totalCost = 0;
     const activeTicketsCount = deptTickets.filter(
       (t) => t.status !== "Closed" && t.status !== "Resolved"
     ).length;
@@ -57,10 +57,10 @@ export default function DepartmentsPage() {
   const filteredAssets = deptData
     ? deptData.assets.filter(
         (a) =>
-          a.name.toLowerCase().includes(assetSearch.toLowerCase()) ||
+          a.assetName.toLowerCase().includes(assetSearch.toLowerCase()) ||
           a.category.toLowerCase().includes(assetSearch.toLowerCase()) ||
-          a.serial.toLowerCase().includes(assetSearch.toLowerCase()) ||
-          a.id.toLowerCase().includes(assetSearch.toLowerCase())
+          a.serialNumber.toLowerCase().includes(assetSearch.toLowerCase()) ||
+          a.assetId.toLowerCase().includes(assetSearch.toLowerCase())
       )
     : [];
 
@@ -74,7 +74,7 @@ export default function DepartmentsPage() {
     : [];
 
   if (selectedDept && deptData) {
-    const locationsSet = new Set(deptData.employees.map(e => e.location.split(" - ")[0]));
+    const locationsSet = new Set(deptData.employees.map(e => (e.location ?? "").split(" - ")[0]));
     const locationsList = Array.from(locationsSet);
 
     const activeCount = deptData.employees.filter(e => e.status === "Active").length;
@@ -155,7 +155,7 @@ export default function DepartmentsPage() {
             </div>
             <div>
               <div className="text-2xl font-bold">{deptData.activeTicketsCount}</div>
-              <p className="text-xs text-muted-foreground mt-0.5">Pending IT help desk support tickets</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Pending IT help desk tickets</p>
             </div>
           </Card>
         </div>
@@ -292,21 +292,21 @@ export default function DepartmentsPage() {
                     ) : (
                       filteredAssets.map((asset) => (
                         <div
-                          key={asset.id}
+                          key={asset.assetId}
                           className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/30 hover:border-muted-foreground/20 transition-all"
                         >
                           <div>
-                            <div className="text-sm font-semibold text-foreground">{asset.name}</div>
+                            <div className="text-sm font-semibold text-foreground">{asset.assetName}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                               <span className="font-semibold text-primary/80 bg-primary/5 px-2 py-0.5 rounded border border-primary/10">{asset.category}</span>
                               <span>•</span>
-                              <span>Serial: <span className="font-mono">{asset.serial}</span></span>
+                              <span>Serial: <span className="font-mono">{asset.serialNumber}</span></span>
                             </div>
                           </div>
                           <div className="text-right flex items-center gap-5">
                             <div>
-                              <div className="text-sm font-bold text-foreground">${asset.cost.toLocaleString()}</div>
-                              <div className="text-[10px] text-muted-foreground">{asset.location.split(" - ")[0]}</div>
+                              <div className="text-sm font-bold text-foreground">-</div>
+                              <div className="text-[10px] text-muted-foreground">{(asset.location ?? "").split(" - ")[0]}</div>
                             </div>
                             <StatusBadge status={asset.status} />
                           </div>

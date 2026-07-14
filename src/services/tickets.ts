@@ -114,7 +114,8 @@ export async function fetchTickets(role?: string): Promise<{ tickets: Ticket[]; 
   else if (role === "admin") path = "/admin-tickets";
 
   const data = await apiFetch<BackendTicket[]>(path);
-  const tickets = (Array.isArray(data) ? data : []).map(mapTicket);
+  const rawTickets = Array.isArray(data) ? data : (data as any)?.items ?? [];
+  const tickets = rawTickets.map(mapTicket);
   return { tickets, total: tickets.length };
 }
 
@@ -124,15 +125,25 @@ export async function createTicket(
     description: string;
     priority: string;
     category: string;
+    department: string;
+    employeeId: string;
+    created_by_id: string;
     asset_id?: string | null;
     attachments?: string[];
   },
 ): Promise<Ticket> {
-  const data = await apiFetch<BackendTicket>("/create-ticket", {
+  const response = await apiFetch<any>("/create-ticket", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  return mapTicket(data);
+  const ticketId = response.ticketId || response.ticket?.TicketId || response.ticket?.ticketId;
+  const ticket = mapTicket({
+    ...(response.ticket || {}),
+    display_id: ticketId,
+    id: ticketId,
+  } as BackendTicket);
+  console.log("[Ticket] Ticket created:", ticket.id);
+  return ticket;
 }
 
 export async function updateTicketStatus(
@@ -144,7 +155,7 @@ export async function updateTicketStatus(
     method: "PUT",
     body: JSON.stringify({ ticket_id: ticketId, status, comment }),
   });
-  return mapTicket(data);
+  return mapTicket(data ?? {} as BackendTicket);
 }
 
 export async function addTicketComment(
@@ -157,10 +168,61 @@ export async function addTicketComment(
   });
 }
 
-export async function uploadFiles(files: FileList): Promise<string[]> {
-  const fd = new FormData();
-  for (let i = 0; i < files.length; i++) {
-    fd.append("files", files[i]);
+export async function uploadFiles(
+  files: FileList | File[],
+  ticketId: string,
+  employeeId: string,
+): Promise<string[]> {
+  if (!ticketId) {
+    const error = new Error("TicketId is missing");
+    console.error("[Upload]", error.message);
+    throw error;
   }
-  return apiUpload("/upload-attachment", fd);
+
+  const urls: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    if (!file) {
+      console.error("Upload validation failed: file is null/undefined at index", i);
+      continue;
+    }
+    if (file.size <= 0) {
+      console.error(`Upload validation failed: file "${file.name}" has size ${file.size}`);
+      continue;
+    }
+
+    const formData = new FormData();
+    formData.append("TicketId", ticketId);
+    formData.append("EmployeeId", employeeId);
+    formData.append("FileName", file.name);
+    formData.append("File", file);
+
+    console.log("TicketId:", ticketId);
+    console.log("EmployeeId:", employeeId);
+    console.log("FileName:", file.name);
+    console.log("File:", file);
+
+    try {
+      const result = await apiUpload<{ url?: string; data?: { url?: string } }>(
+        "/upload-attachment",
+        formData,
+      );
+
+      const fileUrl = result?.url || result?.data?.url;
+      if (fileUrl) {
+        urls.push(fileUrl);
+      } else {
+        console.warn("Upload succeeded but no URL in response:", result);
+        urls.push(String(result));
+      }
+    } catch (err: any) {
+      console.error(`[Upload] Attachment upload failed for "${file.name}":`, err.message);
+      throw err;
+    }
+  }
+
+  console.log("[Upload] Attachment upload completed. URLs:", urls);
+  return urls;
 }

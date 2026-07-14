@@ -6,7 +6,7 @@ export default function AssignedTicketsPage() {
       title="Assigned to Me"
       description="Tickets currently in your queue."
       filter={(t) => !["Closed", "Pending Administration Approval", "Approved for Asset Manager"].includes(t.status)}
-      workflowRole="support"
+      workflowRole="it_support_team"
     />
   );
 }

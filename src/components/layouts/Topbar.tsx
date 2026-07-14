@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, getRoleLabel } from "@/lib/utils";
 import { useData } from "@/contexts/data";
 
 export function Topbar() {
@@ -97,7 +97,7 @@ export function Topbar() {
               </Avatar>
               <div className="text-left hidden sm:block">
                 <div className="text-xs font-medium leading-tight">{user?.name}</div>
-                <div className="text-[10px] text-muted-foreground capitalize">{user?.role.replace("_", " ")}</div>
+                <div className="text-[10px] text-muted-foreground">{getRoleLabel(user?.role)}</div>
               </div>
             </button>
           </DropdownMenuTrigger>

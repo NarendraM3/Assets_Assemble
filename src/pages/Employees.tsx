@@ -16,12 +16,12 @@ import type { Employee } from "@/types/domain";
 import { uniqueValues } from "@/lib/live-data";
 import { DEPARTMENTS as MOCK_DEPARTMENTS, LOCATIONS as MOCK_LOCATIONS, CATEGORIES as MOCK_CATEGORIES } from "@/data/mock";
 import { useData } from "@/contexts/data";
-import { Plus, MoreHorizontal, Eye, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckCircle2, AlertCircle, Laptop } from "lucide-react";
+import { Plus, MoreHorizontal, Eye, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckCircle2, AlertCircle, Laptop, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function EmployeesPage() {
-  const { employees, assets, addEmployee, deleteEmployee } = useData();
+  const { employees, assets, addEmployee, deleteEmployee, refreshData, loading, error } = useData();
   const depts = uniqueValues(employees.map(e => e.department));
   const DEPARTMENTS = depts.length > 0 ? depts : MOCK_DEPARTMENTS;
   const locs = uniqueValues(employees.map(e => e.location));
@@ -35,18 +35,23 @@ export default function EmployeesPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("employee");
+  const [role, setRole] = useState("Employee");
   const [department, setDepartment] = useState("");
   const [location, setLocation] = useState("");
   const [allocationDate, setAllocationDate] = useState("");
   const [allocationTime, setAllocationTime] = useState("");
   const [requiredAssetCategory, setRequiredAssetCategory] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRoleChange = (value: string) => {
+    setRole(value);
+  };
 
   const handleOpenCreate = () => {
     setFirstName("");
     setLastName("");
     setEmail("");
-    setRole("employee");
+    setRole("Employee");
     setDepartment("");
     setLocation("");
     setAllocationDate("");
@@ -62,32 +67,74 @@ export default function EmployeesPage() {
       email.trim() &&
       department &&
       location &&
-      (role !== "employee" || (allocationDate && allocationTime && requiredAssetCategory));
+      (role !== "Employee" || (allocationDate && allocationTime && requiredAssetCategory));
 
     if (!isFormValid) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    const normalizedRole = role.trim().replace(/\s+/g, ' ');
+
     try {
-      await addEmployee({
+      console.log("Selected Role:", normalizedRole);
+
+      const empData = {
         name: `${firstName.trim()} ${lastName.trim()}`,
         email: email.trim(),
-        role,
+        role: normalizedRole,
         department,
         location,
-        designation: role === "support" ? "Support Engineer" : role === "asset_manager" ? "Asset Manager" : "Software Engineer",
+        designation: normalizedRole === "IT Support Team" ? "IT Support Team" : normalizedRole === "Asset Manager" ? "Asset Manager" : normalizedRole === "Admin" ? "Administrator" : "Software Engineer",
         manager: "Aarav Sharma",
         phone: `+1 555-${String(1000 + Math.floor(Math.random() * 9000))}`,
-        allocationDate: role === "employee" ? allocationDate : undefined,
-        allocationTime: role === "employee" ? allocationTime : undefined,
-        allocationStatus: role === "employee" ? "Awaiting Asset Verification" : undefined,
-        requiredAssetCategory: role === "employee" ? requiredAssetCategory : undefined,
-      });
+        allocationDate: normalizedRole === "Employee" ? allocationDate : undefined,
+        allocationTime: normalizedRole === "Employee" ? allocationTime : undefined,
+        allocationStatus: normalizedRole === "Employee" ? "Awaiting Asset Verification" : undefined,
+        requiredAssetCategory: normalizedRole === "Employee" ? requiredAssetCategory : undefined,
+      };
 
-      toast.success(`${role === "employee" ? "Employee" : role === "support" ? "Support Engineer" : "Asset Manager"} added and credentials sent.`);
+      console.log("[Employee Registration] Request payload:", empData);
+
+      const result = await addEmployee(empData);
+
+      console.log("[Employee Registration] API response:", result);
+
+      toast.success("Employee registered successfully.");
+
+      if (result?.EmployeeId || result?.TemporaryPassword) {
+        toast.info(
+          `Employee ID: ${result.EmployeeId}\nTemporary Password: ${result.TemporaryPassword}` +
+            (result.Note ? `\n${result.Note}` : ""),
+          { duration: 15000 },
+        );
+      }
+
       setCreateOpen(false);
-    } catch (e) {
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setRole("Employee");
+      setDepartment("");
+      setLocation("");
+      setAllocationDate("");
+      setAllocationTime("");
+      setRequiredAssetCategory("");
+    } catch (e: any) {
+      console.error("[Employee Registration] Error:", e);
+      const backendMsg = e.body?.message || e.body?.detail || e.body?.error || e.message || "";
+      if (e.status === 401) {
+        toast.error("Unauthorized. Please log in again.");
+      } else if (e.status === 0) {
+        toast.error("Unable to reach the server. Please check your connection and try again.");
+      } else {
+        toast.error(backendMsg || "Failed to add employee");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -102,8 +149,19 @@ export default function EmployeesPage() {
     }
   };
 
+  const roleLabel = (r: string) => {
+    const map: Record<string, string> = {
+      employee: "Employee",
+      it_support_team: "IT Support Team",
+      asset_manager: "Asset Manager",
+      admin: "Admin",
+    };
+    return map[r] ?? r;
+  };
+
   const columns: ColumnDef<Employee>[] = [
     { accessorKey: "id", header: "Employee ID" },
+    { id: "role", header: "Role", cell: ({row}) => roleLabel(row.original.role ?? "") },
     { id: "name", header: "Name", cell: ({row}) => (
       <div className="flex items-center gap-2">
         <Avatar className="h-7 w-7"><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{row.original.avatar}</AvatarFallback></Avatar>
@@ -135,9 +193,7 @@ export default function EmployeesPage() {
     email.trim() &&
     department &&
     location &&
-    allocationDate &&
-    allocationTime &&
-    requiredAssetCategory;
+    (role !== "employee" || (allocationDate && allocationTime && requiredAssetCategory));
 
   const renderTimeline = (employee: Employee) => {
     const steps = [
@@ -219,8 +275,22 @@ export default function EmployeesPage() {
     <>
       <PageHeader title="Employees" description={`Directory of ${employees.length} employees across ${DEPARTMENTS.length} departments.`}
         actions={<Button onClick={handleOpenCreate}><Plus className="h-4 w-4 mr-1"/>Add Employee</Button>}/>
-      <Card className="p-4">
-        <DataTable data={employees} columns={columns} searchPlaceholder="Search employees…" onRowClick={setSelected} pageSize={15}/>
+      <Card className="p-4 relative">
+        {loading && (
+          <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="flex items-center gap-3 p-3 mb-3 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive text-sm">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <span>{error}</span>
+            <Button variant="outline" size="sm" className="ml-auto" onClick={() => refreshData()}>Retry</Button>
+          </div>
+        )}
+
+        <DataTable data={employees} columns={columns} searchPlaceholder="Search employees…" onRowClick={setSelected} pageSize={15} emptyMessage="No employees found."/>
       </Card>
 
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
@@ -318,13 +388,13 @@ export default function EmployeesPage() {
               </div>
               <div>
                 <Label className="text-xs font-semibold">Role <span className="text-destructive">*</span></Label>
-                <Select value={role} onValueChange={setRole}>
+                <Select value={role} onValueChange={handleRoleChange}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Role"/></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="employee">Employee</SelectItem>
-                    <SelectItem value="support">Support Engineer</SelectItem>
-                    <SelectItem value="lo_support">LO Support</SelectItem>
-                    <SelectItem value="asset_manager">Asset Manager</SelectItem>
+                    <SelectItem value="Employee">Employee</SelectItem>
+                    <SelectItem value="IT Support Team">IT Support Team</SelectItem>
+                    <SelectItem value="Asset Manager">Asset Manager</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -346,49 +416,38 @@ export default function EmployeesPage() {
               </div>
             </div>
 
-            {role === "employee" && (
-              <div className="border-t pt-3 mt-1 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">Asset Onboarding Setup</span>
+            <div className="border-t pt-3 mt-1 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">Asset Onboarding Setup</span>
 
+              <div>
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <Laptop className="h-3 w-3 text-muted-foreground" /> Required Hardware Category <span className="text-destructive">*</span>
+                </Label>
+                <Select value={requiredAssetCategory} onValueChange={setRequiredAssetCategory}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Required Category"/></SelectTrigger>
+                  <SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-semibold flex items-center gap-1">
-                    <Laptop className="h-3 w-3 text-muted-foreground" /> Required Hardware Category <span className="text-destructive">*</span>
+                    <Calendar className="h-3 w-3 text-muted-foreground" /> Allocation Date <span className="text-destructive">*</span>
                   </Label>
-                  <Select value={requiredAssetCategory} onValueChange={setRequiredAssetCategory}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select Required Category"/></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Input className="mt-1.5 cursor-pointer" type="date" value={allocationDate} onChange={e => setAllocationDate(e.target.value)}/>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs font-semibold flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-muted-foreground" /> Allocation Date <span className="text-destructive">*</span>
-                    </Label>
-                    <Input className="mt-1.5 cursor-pointer" type="date" value={allocationDate} onChange={e => setAllocationDate(e.target.value)}/>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-muted-foreground" /> Allocation Time <span className="text-destructive">*</span>
-                    </Label>
-                    <Input className="mt-1.5 cursor-pointer" type="time" value={allocationTime} onChange={e => setAllocationTime(e.target.value)}/>
-                  </div>
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" /> Allocation Time <span className="text-destructive">*</span>
+                  </Label>
+                  <Input className="mt-1.5 cursor-pointer" type="time" value={allocationTime} onChange={e => setAllocationTime(e.target.value)}/>
                 </div>
               </div>
-            )}
+            </div>
           </div>
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={
-              !(
-                firstName.trim() &&
-                lastName.trim() &&
-                email.trim() &&
-                department &&
-                location &&
-                (role !== "employee" || (allocationDate && allocationTime && requiredAssetCategory))
-              )
-            }>Create</Button>
+            <Button onClick={handleCreate} disabled={!isFormValid || isSubmitting}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

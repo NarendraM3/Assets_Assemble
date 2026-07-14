@@ -14,7 +14,7 @@ export default function SearchPage() {
   const term = q.toLowerCase();
 
   const empResults = useMemo(() => employees.filter(e => e.name.toLowerCase().includes(term) || e.id.toLowerCase().includes(term) || e.email.toLowerCase().includes(term)).slice(0, 8), [term, employees]);
-  const assetResults = useMemo(() => assets.filter(a => a.name.toLowerCase().includes(term) || a.id.toLowerCase().includes(term) || a.serial.toLowerCase().includes(term)).slice(0, 8), [term, assets]);
+  const assetResults = useMemo(() => assets.filter(a => a.assetName.toLowerCase().includes(term) || a.assetId.toLowerCase().includes(term) || a.serialNumber.toLowerCase().includes(term)).slice(0, 8), [term, assets]);
   const ticketResults = useMemo(() => tickets.filter(t => t.title.toLowerCase().includes(term) || t.id.toLowerCase().includes(term)).slice(0, 8), [term, tickets]);
 
   return (
@@ -48,7 +48,7 @@ export default function SearchPage() {
             <div className="divide-y">
               {assetResults.length === 0 && <div className="text-sm text-muted-foreground py-3">No results</div>}
               {assetResults.map(a => (
-                <Link key={a.id} to="/assets" className="block py-2.5 text-sm hover:bg-muted/50 -mx-1 px-1 rounded"><div className="font-medium">{a.name}</div><div className="text-xs text-muted-foreground">{a.id} • {a.serial}</div></Link>
+                <Link key={a.assetId} to="/assets" className="block py-2.5 text-sm hover:bg-muted/50 -mx-1 px-1 rounded"><div className="font-medium">{a.assetName}</div><div className="text-xs text-muted-foreground">{a.assetId} • {a.serialNumber}</div></Link>
               ))}
             </div>
           </Card>

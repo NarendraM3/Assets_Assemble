@@ -32,9 +32,9 @@ export default function WarrantyPage() {
   }));
 
   const columns: ColumnDef<Asset>[] = [
-    { accessorKey: "id", header: "Asset ID" },
-    { accessorKey: "name", header: "Asset" },
-    { accessorKey: "manufacturer", header: "Manufacturer" },
+    { accessorKey: "assetId", header: "Asset ID" },
+    { accessorKey: "assetName", header: "Asset" },
+    { accessorKey: "brand", header: "Brand" },
     { accessorKey: "warrantyExpiry", header: "Expires" },
     { id: "days", header: "Days Left", cell: ({row}) => {
       const d = daysUntil(row.original.warrantyExpiry);
@@ -88,7 +88,7 @@ export default function WarrantyPage() {
       </div>
       <Card className="p-4">
         <div className="font-semibold text-sm mb-3">Expiring Assets</div>
-        <DataTable data={[...expired, ...expiring30]} columns={columns} searchPlaceholder="Search assets…"/>
+        <DataTable data={[...expired, ...expiring30]} columns={columns} searchPlaceholder="Search assets…" emptyMessage="No expiring assets found"/>
       </Card>
     </>
   );

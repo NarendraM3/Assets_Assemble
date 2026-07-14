@@ -34,7 +34,7 @@ export function SupportDashboard() {
 
   return (
     <>
-      <PageHeader title="Support Dashboard" description="Monitor ticket queues, SLA health, and daily resolution progress." />
+      <PageHeader title="IT Support Team Dashboard" description="Monitor ticket queues, SLA health, and daily resolution progress." />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Open Tickets" value={open} icon={TicketIcon} tone="info" index={0} />
         <StatCard label="Critical Tickets" value={critical} icon={AlertTriangle} tone="danger" index={1} />

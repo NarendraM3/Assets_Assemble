@@ -1,14 +1,17 @@
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate, Outlet, useNavigate, useLocation, type OutletProps } from "react-router-dom";
-import { useEffect, type ReactNode } from "react";
+import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { ThemeProvider } from "@/contexts/theme";
 import { DataProvider } from "@/contexts/data";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "@/components/layouts/AppLayout";
+import { Button } from "@/components/ui/button";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ChangePassword from "./pages/ChangePassword";
 import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
 import AssetCategories from "./pages/AssetCategories";
@@ -36,12 +39,47 @@ import Warranty from "./pages/Warranty";
 import ApprovedRequestQueue from "./pages/ApprovedRequestQueue";
 import AllocationOnboarding from "./pages/AllocationOnboarding";
 import OnboardingVerification from "./pages/OnboardingVerification";
+import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import { AdminDashboard } from "@/features/dashboards/AdminDashboard";
 import { AssetManagerDashboard } from "@/features/dashboards/AssetManagerDashboard";
 import { EmployeeDashboard } from "@/features/dashboards/EmployeeDashboard";
 import { SupportDashboard } from "@/features/dashboards/SupportDashboard";
 
 const queryClient = new QueryClient();
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[ErrorBoundary]", error, errorInfo);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="max-w-md text-center space-y-4">
+            <h1 className="text-6xl font-bold text-destructive">Oops</h1>
+            <h2 className="text-xl font-semibold">Something went wrong</h2>
+            <p className="text-sm text-muted-foreground">
+              {this.state.error.message || "An unexpected error occurred."}
+            </p>
+            <Button
+              onClick={() => { this.setState({ error: null }); window.location.hash = "#/login"; window.location.reload(); }}
+            >
+              Reload Application
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function NotFound() {
   return (
@@ -62,25 +100,37 @@ function NotFound() {
 
 function RootProviders({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          {children}
-          <Toaster />
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
 function AuthGuard() {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    const token = localStorage.getItem("itsm.token");
-    if (!token) {
+    if (!loading && !user) {
       navigate("/login", { replace: true });
+    } else if (!loading && user?.must_change_password) {
+      navigate("/change-password", { replace: true });
     }
-  }, [navigate]);
+  }, [loading, user, navigate]);
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Loading session...</div>
+      </div>
+    );
+  }
+  if (!user) return null;
   return (
     <DataProvider>
       <AppLayout />
@@ -95,12 +145,20 @@ export function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/change-password" element={<ChangePassword />} />
           <Route element={<AuthGuard />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/manager" element={<AssetManagerDashboard />} />
+            <Route path="/asset-manager" element={<AssetManagerDashboard />} />
+            <Route path="/asset-manager/dashboard" element={<AssetManagerDashboard />} />
             <Route path="/employee" element={<EmployeeDashboard />} />
+            <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
+            <Route path="/it" element={<SupportDashboard />} />
+            <Route path="/it/dashboard" element={<SupportDashboard />} />
             <Route path="/support" element={<SupportDashboard />} />
+            <Route path="/hr" element={<Dashboard />} />
             <Route path="/assets" element={<Assets />} />
             <Route path="/asset-categories" element={<AssetCategories />} />
             <Route path="/assignments" element={<Assignments />} />
@@ -126,6 +184,7 @@ export function App() {
             <Route path="/warranty" element={<Warranty />} />
             <Route path="/approved-request-queue" element={<ApprovedRequestQueue />} />
             <Route path="/allocation-onboarding" element={<AllocationOnboarding />} />
+            <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
             <Route path="/onboarding-verification" element={<OnboardingVerification />} />
           </Route>
           <Route path="*" element={<NotFound />} />

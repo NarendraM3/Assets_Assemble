@@ -1,6 +1,6 @@
-import { Package, TicketIcon, CheckCircle2, Clock, Plus, ArrowRight, User, Mail, Phone, Briefcase, UserCheck, MapPin, Calendar, KeyRound, HelpCircle, Bell, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays } from "lucide-react";
+import { Package, TicketIcon, CheckCircle2, Clock, Plus, ArrowRight, User, Mail, Phone, Briefcase, UserCheck, MapPin, Calendar, KeyRound, HelpCircle, Bell, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays, ClipboardList, Building2, Cpu, Hash, Layers, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,21 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { AssetWorkflowTimeline } from "@/components/common/AssetWorkflowTimeline";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
+import { getRoleLabel } from "@/lib/utils";
+import type { Asset } from "@/types/domain";
+import { isAssignedToEmployee } from "@/lib/assets";
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
-  const { assets, tickets, notifications, fetchFullProfile } = useData();
+  const { assets, tickets, notifications, fetchFullProfile, refreshData } = useData();
 
   const [fullProfile, setFullProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -30,13 +36,18 @@ export function EmployeeDashboard() {
     return () => { active = false; };
   }, [user]);
 
-  // Filter assets assigned specifically to this logged-in user
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
+
   const myAssets = useMemo(() => {
     if (!user) return [];
-    return assets.filter(a => a.status === "Assigned" && a.assignedTo === user.display_id);
+    return assets.filter(a => isAssignedToEmployee(a, user.display_id, user.id));
   }, [assets, user]);
 
-  // Filter tickets filed by this logged-in user
   const myTickets = useMemo(() => {
     if (!user) return [];
     return tickets.filter(t => t.createdBy === user.name);
@@ -54,10 +65,18 @@ export function EmployeeDashboard() {
     return myTickets.filter((t) => ["Waiting", "Escalated", "Pending Administration Approval", "Approved for Asset Manager"].includes(t.status)).length;
   }, [myTickets]);
 
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    myAssets.forEach(a => {
+      counts[a.status] = (counts[a.status] || 0) + 1;
+    });
+    return counts;
+  }, [myAssets]);
+
   return (
     <>
       <PageHeader
-        title={`Welcome back, ${user?.name.split(" ")[0]}`}
+        title={`Welcome back, ${user?.name?.split(" ")[0] || "User"}`}
         description="Here's what's happening with your assets and tickets today."
         actions={
           <>
@@ -87,14 +106,14 @@ export function EmployeeDashboard() {
               <div className="flex flex-col items-center text-center pb-4 border-b">
                 <Avatar className="h-20 w-20 border-2 border-primary/20 shadow-inner mb-3">
                   <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                    {user?.avatar || user?.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                    {user?.avatar || user?.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "NA"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="text-xs uppercase font-bold text-primary tracking-wider">{user?.designation || "Employee"}</div>
                 <h4 className="font-bold text-lg text-foreground mt-0.5">{user?.name}</h4>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="font-mono text-xs text-muted-foreground">{user?.display_id}</span>
-                  <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{user?.role}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">{getRoleLabel(user?.role)}</Badge>
                   <StatusBadge status={user?.status || "Active"} />
                 </div>
               </div>
@@ -104,7 +123,7 @@ export function EmployeeDashboard() {
                   <Briefcase className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Department</span>
-                    <span className="font-medium text-foreground">{fullProfile?.user?.department || "Not set"}</span>
+                    <span className="font-medium text-foreground">{fullProfile?.user?.department ?? fullProfile?.department ?? "Not set"}</span>
                   </div>
                 </div>
 
@@ -112,7 +131,7 @@ export function EmployeeDashboard() {
                   <UserCheck className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Reporting Manager</span>
-                    <span className="font-medium text-foreground">{fullProfile?.user?.manager || "Not assigned"}</span>
+                    <span className="font-medium text-foreground">{fullProfile?.user?.manager ?? fullProfile?.manager ?? "Not assigned"}</span>
                   </div>
                 </div>
 
@@ -120,7 +139,7 @@ export function EmployeeDashboard() {
                   <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Office Location</span>
-                    <span className="font-medium text-foreground">{fullProfile?.user?.location || "Not assigned"}</span>
+                    <span className="font-medium text-foreground">{fullProfile?.user?.location ?? fullProfile?.location ?? "Not assigned"}</span>
                   </div>
                 </div>
 
@@ -128,7 +147,7 @@ export function EmployeeDashboard() {
                   <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Joining Date</span>
-                    <span className="font-medium text-foreground">{fullProfile?.user?.join_date || "Not assigned"}</span>
+                    <span className="font-medium text-foreground">{fullProfile?.user?.join_date ?? fullProfile?.joinDate ?? "Not assigned"}</span>
                   </div>
                 </div>
               </div>
@@ -149,7 +168,7 @@ export function EmployeeDashboard() {
                   <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Phone Number</span>
-                    <span className="font-medium text-foreground">{fullProfile?.user?.phone || "Not provided"}</span>
+                    <span className="font-medium text-foreground">{fullProfile?.user?.phone ?? fullProfile?.phone ?? "Not provided"}</span>
                   </div>
                 </div>
                 <div className="flex gap-2 border-t pt-3">
@@ -157,8 +176,8 @@ export function EmployeeDashboard() {
                   <div>
                     <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Last Login Connection</span>
                     <span className="font-medium text-foreground block text-xs">
-                      {fullProfile?.last_login 
-                        ? `${fullProfile.last_login.timestamp} (${fullProfile.last_login.ip})` 
+                      {fullProfile?.last_login
+                        ? `${fullProfile.last_login.timestamp} (${fullProfile.last_login.ip})`
                         : "First session connection"}
                     </span>
                   </div>
@@ -178,37 +197,53 @@ export function EmployeeDashboard() {
 
           {/* Right Column: Assets, Tickets, & Notifications */}
           <div className="space-y-6 lg:col-span-2">
-            {/* Hardware Assets */}
+            {/* My Assets */}
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-semibold text-sm">My Active Hardware Assets ({myAssets.length})</div>
+                <div className="font-semibold text-sm">My Assets ({myAssets.length})</div>
                 <Link to="/my-assets" className="text-xs text-primary flex items-center gap-1 hover:underline">
-                  More specs <ArrowRight className="h-3 w-3" />
+                  View all <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
 
               {myAssets.length === 0 ? (
                 <div className="p-8 text-center border rounded-lg border-dashed text-sm text-muted-foreground">
-                  No hardware devices or active licenses assigned to your profile.
+                  No assets assigned to your profile yet.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {myAssets.map((asset) => (
-                    <div key={asset.id} className="p-3 border rounded-lg bg-card flex flex-col justify-between shadow-sm hover:border-primary/20 transition-colors">
-                      <div className="flex items-start gap-2.5">
-                        <div className="h-9 w-9 rounded-md bg-primary/10 grid place-items-center text-primary shrink-0">
-                          <Laptop className="h-4.5 w-4.5" />
+                    <div
+                      key={asset.assetId}
+                      onClick={() => setSelectedAsset(asset)}
+                      className="p-4 border rounded-lg bg-card flex flex-col justify-between shadow-sm hover:border-primary/30 hover:shadow-md transition-all cursor-pointer active:scale-[0.99]"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 grid place-items-center text-primary shrink-0">
+                          <Laptop className="h-5 w-5" />
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-sm truncate text-foreground">{asset.name}</div>
-                          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">ID: {asset.id}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm truncate text-foreground">{asset.assetName}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">ID: {asset.assetId}</div>
                         </div>
+                        <StatusBadge status={asset.status} />
                       </div>
-                      <div className="mt-3.5 grid grid-cols-2 gap-y-1.5 text-[11px] border-t pt-2.5 border-dashed">
-                        <span className="text-muted-foreground">Serial:</span>
-                        <span className="font-medium truncate text-right">{asset.serial}</span>
-                        <span className="text-muted-foreground">Warranty Exp:</span>
-                        <span className="font-medium text-right">{asset.warrantyExpiry}</span>
+                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] border-t pt-3 border-dashed">
+                        <span className="text-muted-foreground flex items-center gap-1"><Layers className="h-3 w-3" /> Category</span>
+                        <span className="font-medium truncate text-right">{asset.category || "—"}</span>
+                        <span className="text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Manufacturer</span>
+                        <span className="font-medium truncate text-right">{asset.brand || "—"}</span>
+                        <span className="text-muted-foreground flex items-center gap-1"><Cpu className="h-3 w-3" /> Model</span>
+                        <span className="font-medium truncate text-right">{asset.model || "—"}</span>
+                        <span className="text-muted-foreground flex items-center gap-1"><Hash className="h-3 w-3" /> Serial</span>
+                        <span className="font-medium truncate text-right font-mono">{asset.serialNumber || "—"}</span>
+                        <span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Assigned</span>
+                        <span className="font-medium text-right">{asset.assignedAt || asset.purchaseDate || "—"}</span>
+                        <span className="text-muted-foreground flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Warranty</span>
+                        <span className="font-medium text-right">{asset.warrantyExpiry || "—"}</span>
+                      </div>
+                      <div className="mt-3 text-[10px] text-primary font-medium text-right opacity-60 group-hover:opacity-100 transition-opacity">
+                        Click to view timeline →
                       </div>
                     </div>
                   ))}
@@ -221,7 +256,7 @@ export function EmployeeDashboard() {
               <div className="flex items-center justify-between mb-4">
                 <div className="font-semibold text-sm">Recent Service Tickets ({myTickets.length})</div>
                 <Link to="/my-tickets" className="text-xs text-primary flex items-center gap-1 hover:underline">
-                  View support panel <ArrowRight className="h-3 w-3" />
+                  View ticket panel <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
 
@@ -282,6 +317,81 @@ export function EmployeeDashboard() {
           </div>
         </div>
       )}
+
+      {/* Asset Details & Workflow Timeline Dialog */}
+      <Dialog open={!!selectedAsset} onOpenChange={(o) => !o && setSelectedAsset(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" /> Asset Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete specifications and workflow status.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAsset && (
+            <div className="space-y-4 py-2 text-sm">
+              {/* Asset header */}
+              <div className="p-4 bg-muted/40 rounded-lg border border-dashed flex items-center gap-3">
+                <div className="h-12 w-12 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+                  <Laptop className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{selectedAsset.category}</span>
+                  <h4 className="font-semibold text-base truncate text-foreground">{selectedAsset.assetName}</h4>
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">Asset ID: {selectedAsset.assetId}</p>
+                </div>
+                <StatusBadge status={selectedAsset.status} />
+              </div>
+
+              {/* Specs grid */}
+              <div className="grid grid-cols-2 gap-3 border rounded-lg p-4 bg-background shadow-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Manufacturer</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.brand || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Cpu className="h-3.5 w-3.5" /> Model</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.model || "—"}</span>
+                </div>
+                <div className="col-span-2 border-t pt-3 border-dashed">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> Serial Number</span>
+                  <span className="font-mono text-foreground font-semibold block mt-1">{selectedAsset.serialNumber}</span>
+                </div>
+                <div className="border-t pt-3 border-dashed">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Assigned Date</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.assignedAt || selectedAsset.purchaseDate || "—"}</span>
+                </div>
+                <div className="border-t pt-3 border-dashed">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Warranty Expiry</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.warrantyExpiry || "—"}</span>
+                </div>
+                <div className="border-t pt-3 border-dashed">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Category</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.category || "—"}</span>
+                </div>
+                <div className="border-t pt-3 border-dashed">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Location</span>
+                  <span className="font-medium text-foreground block mt-1">{selectedAsset.location || "—"}</span>
+                </div>
+              </div>
+
+              {/* Workflow Timeline */}
+              <div className="border rounded-lg p-4 bg-background shadow-sm">
+                <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <ClipboardList className="h-3.5 w-3.5" /> Workflow Timeline
+                </div>
+                <AssetWorkflowTimeline status={selectedAsset.status} />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button className="w-full sm:w-auto" onClick={() => setSelectedAsset(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

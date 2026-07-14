@@ -1,7 +1,7 @@
 // Deterministic mock data for the Enterprise IT Asset Management app.
 // All data is generated in-memory. No backend calls.
 
-export type Role = "employee" | "support" | "asset_manager" | "admin" | "lo_support";
+export type Role = "employee" | "it_support_team" | "asset_manager" | "admin";
 
 export interface Employee {
   id: string;
@@ -36,18 +36,25 @@ export interface Employee {
 }
 
 export interface Asset {
-  id: string;
-  name: string;
+  assetId: string;
+  assetName: string;
+  assetTag: string;
+  brand: string;
   category: string;
-  manufacturer: string;
   model: string;
-  serial: string;
+  serialNumber: string;
+  status: "Assigned" | "Available" | "Maintenance" | "Retired";
+  assignedTo: string | null;
   purchaseDate: string;
   warrantyExpiry: string;
   location: string;
-  assignedTo: string | null;
-  status: "Assigned" | "Available" | "Maintenance" | "Retired";
-  cost: number;
+  condition: string;
+  vendor: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  assignedAt: string;
+  hardwareRequired: string;
 }
 
 export interface Ticket {
@@ -132,10 +139,9 @@ export const LOCATIONS = ["HQ - New York", "Austin Office", "London Office", "Ba
 export const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Email", "Peripheral", "Security"];
 export const ROLES: { id: Role; name: string; description: string }[] = [
   { id: "employee", name: "Employee", description: "Standard employee access" },
-  { id: "support", name: "Support Engineer", description: "IT support & ticket resolution" },
+  { id: "it_support_team", name: "IT Support Team", description: "IT support & ticket resolution" },
   { id: "asset_manager", name: "Asset Manager", description: "Full asset lifecycle" },
   { id: "admin", name: "Administrator", description: "System configuration & oversight" },
-  { id: "lo_support", name: "LO Support", description: "Local office IT support & asset allocation" },
 ];
 
 // Deterministic PRNG
@@ -209,7 +215,7 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
       assetName: "Lenovo Monitor 1022", // matches categories/names
       serialNumber: "SN55489723",
       assignedAt: `${daysAgo(1)} 11:15 AM`,
-      assignedBy: "Support Engineer User",
+      assignedBy: "IT Support Team User",
       remarks: "Delivered to user desk and verified networking connection."
     };
     allocationHistory = [
@@ -217,8 +223,8 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
       { step: "Awaiting Asset Verification", timestamp: `${daysAgo(3)} 09:10 AM`, actor: "System", remarks: "Asset verification request sent." },
       { step: "Inventory Verified", timestamp: `${daysAgo(2)} 11:00 AM`, actor: "Asset Manager User", remarks: "Verified." },
       { step: "Ready for Allocation", timestamp: `${daysAgo(2)} 11:00 AM`, actor: "Asset Manager User", remarks: "Approved." },
-      { step: "Asset Assigned", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "Support Engineer User", remarks: "Assigned Asset AST-10022." },
-      { step: "Completed", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "Support Engineer User", remarks: "Setup completed." }
+      { step: "Asset Assigned", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "IT Support Team User", remarks: "Assigned Asset AST-10022." },
+      { step: "Completed", timestamp: `${daysAgo(1)} 11:15 AM`, actor: "IT Support Team User", remarks: "Setup completed." }
     ];
   }
 
@@ -251,18 +257,25 @@ export const assets: Asset[] = Array.from({ length: 1000 }, (_, i) => {
     statusRoll < 0.6 ? "Assigned" : statusRoll < 0.8 ? "Available" : statusRoll < 0.92 ? "Maintenance" : "Retired";
   const assignedTo = status === "Assigned" ? employees[Math.floor(rand() * employees.length)].id : null;
   return {
-    id: `AST-${String(10000 + i)}`,
-    name: `${mfr} ${cat} ${1000 + i}`,
+    assetId: `AST-${String(10000 + i)}`,
+    assetName: `${mfr} ${cat} ${1000 + i}`,
+    assetTag: `TAG-${String(10000 + i)}`,
+    brand: mfr,
     category: cat,
-    manufacturer: mfr,
     model: `${mfr.slice(0, 2).toUpperCase()}-${Math.floor(rand() * 9000 + 1000)}`,
-    serial: `SN${Math.floor(rand() * 1e10).toString(36).toUpperCase().padStart(10, "0")}`,
+    serialNumber: `SN${Math.floor(rand() * 1e10).toString(36).toUpperCase().padStart(10, "0")}`,
+    status,
+    assignedTo,
     purchaseDate: daysAgo(Math.floor(rand() * 1500) + 30),
     warrantyExpiry: daysFromNow(Math.floor(rand() * 800) - 200),
     location: pick(LOCATIONS),
-    assignedTo,
-    status,
-    cost: Math.floor(rand() * 3500) + 200,
+    condition: pick(["New", "Good", "Fair", "Poor"]),
+    vendor: pick(["Dell Enterprise", "HP Inc", "Lenovo Group", "Apple Inc"]),
+    createdAt: daysAgo(Math.floor(rand() * 365)),
+    updatedAt: daysAgo(Math.floor(rand() * 30)),
+    createdBy: pick(employees.map(e => e.id)),
+    assignedAt: status === "Assigned" ? daysAgo(Math.floor(rand() * 200)) : "",
+    hardwareRequired: rand() > 0.7 ? pick(["Docking Station", "Extra Monitor", "Keyboard", "Mouse"]) : "",
   };
 });
 
@@ -284,14 +297,14 @@ export const tickets: Ticket[] = Array.from({ length: 500 }, (_, i) => {
       "Monitor flickering", "Password reset request", "Email not syncing",
       "Slow performance", "Printer offline", "Keyboard key stuck",
       "Access request: SharePoint", "Screen brightness issue", "Bluetooth not working",
-    ][i % 12] + ` (${asset?.name.split(" ")[0] ?? "General"})`,
+    ][i % 12] + ` (${asset?.assetName.split(" ")[0] ?? "General"})`,
     description: "Detailed description of the issue reported by the employee. Steps to reproduce and impact assessment included.",
     priority: PRIORITIES[Math.floor(rand() * PRIORITIES.length)],
     category: pick(TICKET_CATEGORIES),
     status: st,
     createdBy: emp.name,
     assignee,
-    assetId: asset?.id ?? null,
+    assetId: asset?.assetId ?? null,
     createdAt: created,
     updatedAt: updated,
     sla: SLA[Math.floor(rand() * SLA.length)],
@@ -307,7 +320,7 @@ export const assignments: Assignment[] = assets
   .slice(0, 300)
   .map((a, i) => ({
     id: `ASG-${String(2000 + i)}`,
-    assetId: a.id,
+    assetId: a.assetId,
     employeeId: a.assignedTo!,
     assignedDate: daysAgo(Math.floor(rand() * 500) + 10),
     returnDate: null,
@@ -328,7 +341,7 @@ export const vendors: Vendor[] = MANUFACTURERS.map((m, i) => ({
 
 export const maintenance: Maintenance[] = Array.from({ length: 80 }, (_, i) => ({
   id: `MNT-${300 + i}`,
-  assetId: assets[Math.floor(rand() * assets.length)].id,
+  assetId: assets[Math.floor(rand() * assets.length)].assetId,
   engineer: `${pick(FIRST)} ${pick(LAST)}`,
   date: daysAgo(Math.floor(rand() * 200)),
   resolution: ["Replaced RAM module", "Cleaned internal fans", "Reinstalled OS", "Replaced keyboard", "Battery replacement", "Screen replacement"][i % 6],

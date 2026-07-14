@@ -28,7 +28,7 @@ export default function VendorsPage() {
         actions={<Button onClick={()=>toast.success("Vendor added")}><Plus className="h-4 w-4 mr-1"/>Add Vendor</Button>}
       />
       <Card className="p-4">
-        <DataTable data={vendors} columns={columns} searchPlaceholder="Search vendors…"/>
+        <DataTable data={vendors} columns={columns} searchPlaceholder="Search vendors…" emptyMessage="No vendors found"/>
       </Card>
     </>
   );

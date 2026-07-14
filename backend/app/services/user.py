@@ -120,6 +120,67 @@ class UserService:
 
         return new_user
 
+    async def create_user_detailed(self, user_in: UserCreate, actor_name: str):
+        existing = await user_repository.get_by_email_raw(user_in.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered (archived account exists)"
+            )
+
+        db_count = await user_repository.count_users()
+        display_id = f"EMP-{1000 + db_count}"
+
+        temp_pwd = generate_temp_password()
+        hashed_pwd = get_password_hash(temp_pwd)
+
+        avatar_initials = "".join([part[0].upper() for part in user_in.name.split() if part])[:2] or "EE"
+
+        stamp = datetime.now().strftime("%b %d, %Y %I:%M %p")
+        history = [
+            {"step": "Employee Created", "timestamp": stamp, "actor": actor_name, "remarks": "Employee record created."},
+            {"step": "Awaiting Asset Verification", "timestamp": stamp, "actor": "System", "remarks": f"Asset verification request queued for required category {user_in.required_asset_category or 'Laptop'}."}
+        ]
+
+        user_data = user_in.model_dump()
+        user_data.update({
+            "id": generate_id(),
+            "display_id": display_id,
+            "password_hash": hashed_pwd,
+            "avatar": avatar_initials,
+            "must_change_password": True,
+            "allocation_status": "Awaiting Asset Verification" if user_in.required_asset_category else None,
+            "allocation_history": history if user_in.required_asset_category else None,
+            "created_at": utcnow_str(),
+            "updated_at": utcnow_str(),
+            "is_active": True,
+        })
+
+        new_user = await user_repository.create(user_data)
+
+        await email_service.send_temporary_password_email(
+            name=new_user.name,
+            email=new_user.email,
+            temp_password=temp_pwd,
+            role=new_user.role,
+            login_url="http://localhost:8080/login",
+        )
+
+        await audit_log_repository.create({
+            "id": generate_id(),
+            "display_id": f"LOG-C{secrets.randbelow(1000)}",
+            "action": "Employee Created",
+            "user": actor_name,
+            "target": display_id,
+            "timestamp": today_str(),
+            "ip": "127.0.0.1",
+            "created_at": utcnow_str(),
+            "updated_at": utcnow_str(),
+            "is_active": True,
+        })
+
+        return new_user, temp_pwd
+
     async def update_user(self, user_id: str, user_in: UserUpdate, actor_name: str):
         user = await user_repository.get(user_id)
         if not user:

@@ -18,8 +18,8 @@ export function MaintenanceTable({ title, description, showAction }: { title: st
   const columns: ColumnDef<Maintenance>[] = [
     { accessorKey: "id", header: "ID" },
     { id: "asset", header: "Asset", cell: ({row}) => {
-      const a = assets.find(x=>x.id===row.original.assetId);
-      return <div><div className="font-medium">{a?.name}</div><div className="text-xs text-muted-foreground">{row.original.assetId}</div></div>;
+      const a = assets.find(x=>x.assetId===row.original.assetId);
+      return <div><div className="font-medium">{a?.assetName}</div><div className="text-xs text-muted-foreground">{row.original.assetId}</div></div>;
     }},
     { accessorKey: "engineer", header: "Engineer" },
     { accessorKey: "date", header: "Date" },
@@ -36,7 +36,7 @@ export function MaintenanceTable({ title, description, showAction }: { title: st
         actions={showAction ? <Button onClick={() => toast.success("Maintenance scheduled")}><Plus className="h-4 w-4 mr-1"/>Schedule</Button> : undefined}
       />
       <Card className="p-4">
-        <DataTable data={maintenance} columns={columns} searchPlaceholder="Search maintenance records…"/>
+        <DataTable data={maintenance} columns={columns} searchPlaceholder="Search maintenance records…" emptyMessage="No maintenance records found"/>
       </Card>
     </>
   );

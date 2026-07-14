@@ -71,7 +71,7 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   }, []);
 
   const scopedTickets = useMemo(() => {
-    if (role === "support" || role === "lo_support") {
+    if (role === "it_support_team") {
       return tickets.filter(t => t.assignedRole !== "admin" && t.assignedRole !== "asset_manager");
     }
     if (role === "admin") {
@@ -129,23 +129,23 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   const renderWorkflowActions = () => {
     if (!selected) return null;
 
-    if (role === "support") {
+    if (role === "it_support_team") {
       return (
         <div className="flex gap-2 flex-wrap">
           {selected.status === "Open" && (
             <Button variant="outline" size="sm" onClick={() => { acceptTicket(selected.id, actor); toast.success("Ticket accepted"); }}>Accept</Button>
           )}
           {["Open", "Assigned"].includes(selected.status) && (
-            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "In Progress", actor, "support", withRemarks("Work started.")); toast.success("Status updated"); setComment(""); }}>In Progress</Button>
+            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "In Progress", actor, role, withRemarks("Work started.")); toast.success("Status updated"); setComment(""); }}>In Progress</Button>
           )}
           {!["Pending Administration Approval", "Approved for Asset Manager", "Resolved", "Closed"].includes(selected.status) && (
             <Button variant="outline" size="sm" onClick={() => { escalateTicket(selected.id, actor, withRemarks("Requires administration approval.")); toast.success("Ticket escalated"); setComment(""); }}>Escalate</Button>
           )}
           {!["Pending Administration Approval", "Approved for Asset Manager", "Resolved", "Closed"].includes(selected.status) && (
-            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "Resolved", actor, "support", withRemarks("Issue resolved by Support.")); toast.success("Ticket resolved"); setComment(""); }}>Resolve</Button>
+            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "Resolved", actor, role, withRemarks("Issue resolved.")); toast.success("Ticket resolved"); setComment(""); }}>Resolve</Button>
           )}
           {selected.status === "Resolved" && (
-            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "Closed", actor, "support", withRemarks("Ticket closed.")); toast.success("Ticket closed"); setComment(""); }}>Close Ticket</Button>
+            <Button variant="outline" size="sm" onClick={() => { updateTicketStatus(selected.id, "Closed", actor, role, withRemarks("Ticket closed.")); toast.success("Ticket closed"); setComment(""); }}>Close Ticket</Button>
           )}
         </div>
       );

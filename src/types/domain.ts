@@ -1,9 +1,8 @@
 export type Role =
   | "employee"
-  | "support"
+  | "it_support_team"
   | "asset_manager"
-  | "admin"
-  | "lo_support";
+  | "admin";
 
 export interface Employee {
   id: string;
@@ -43,20 +42,39 @@ export interface Employee {
   }[];
 }
 
+export type AssetStatus =
+  | "Requested"
+  | "Approved"
+  | "Ready for Pickup"
+  | "Assigned"
+  | "Delivered"
+  | "Returned"
+  | "Under Maintenance"
+  | "Out of Stock"
+  | "Available"
+  | "Maintenance"
+  | "Retired";
+
 export interface Asset {
-  id: string;
-  uuid: string;
-  name: string;
+  assetId: string;
+  assetName: string;
+  assetTag: string;
+  brand: string;
   category: string;
-  manufacturer: string;
   model: string;
-  serial: string;
+  serialNumber: string;
+  status: AssetStatus;
+  assignedTo: string | null;
   purchaseDate: string;
   warrantyExpiry: string;
   location: string;
-  assignedTo: string | null;
-  status: "Assigned" | "Available" | "Maintenance" | "Retired";
-  cost: number;
+  condition: string;
+  vendor: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  assignedAt: string;
+  hardwareRequired: string;
 }
 
 export interface Ticket {

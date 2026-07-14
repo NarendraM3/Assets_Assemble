@@ -64,11 +64,11 @@ export default function AllocationOnboardingPage() {
       if (assetSearch.trim()) {
         const s = assetSearch.toLowerCase();
         return (
-          asset.name.toLowerCase().includes(s) ||
-          asset.id.toLowerCase().includes(s) ||
+          asset.assetName.toLowerCase().includes(s) ||
+          asset.assetId.toLowerCase().includes(s) ||
           asset.category.toLowerCase().includes(s) ||
           asset.model.toLowerCase().includes(s) ||
-          asset.serial.toLowerCase().includes(s)
+          asset.serialNumber.toLowerCase().includes(s)
         );
       }
       return true;
@@ -83,13 +83,12 @@ export default function AllocationOnboardingPage() {
     setFilterByLocation(true);
   };
 
-  const handleConfirmAssignment = () => {
+  const handleConfirmAssignment = async () => {
     if (!assigningEmployee || !selectedAssetId) return;
-    const asset = assets.find(a => a.id === selectedAssetId);
+    const asset = assets.find(a => a.assetId === selectedAssetId);
     if (!asset) return;
 
-    completeOnboardingAllocation(assigningEmployee.id, selectedAssetId, remarks, "Support Engineer User");
-    toast.success(`Asset "${asset.name}" assigned to ${assigningEmployee.name}. Onboarding completed.`);
+    await completeOnboardingAllocation(assigningEmployee.id, selectedAssetId, remarks, "IT Support Team User");
     setAssigningEmployee(null);
   };
 
@@ -246,25 +245,25 @@ export default function AllocationOnboardingPage() {
                     </div>
                   ) : (
                     availableAssets.map(asset => {
-                      const selected = selectedAssetId === asset.id;
+                      const selected = selectedAssetId === asset.assetId;
                       return (
                         <div
-                          key={asset.id}
-                          onClick={() => setSelectedAssetId(asset.id)}
+                          key={asset.assetId}
+                          onClick={() => setSelectedAssetId(asset.assetId)}
                           className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                             selected ? "bg-primary/5 border-l-2 border-primary" : "hover:bg-muted/30"
                           }`}
                         >
                           <div className="min-w-0">
                             <div className="text-xs font-bold text-muted-foreground uppercase">{asset.category}</div>
-                            <div className="text-sm font-semibold truncate text-foreground mt-0.5">{asset.name}</div>
+                            <div className="text-sm font-semibold truncate text-foreground mt-0.5">{asset.assetName}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              Model: {asset.model} • S/N: {asset.serial}
+                              Model: {asset.model} • S/N: {asset.serialNumber}
                             </div>
                           </div>
                           <div className="text-right shrink-0 flex flex-col items-end gap-1">
                             <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground border">
-                              {asset.id}
+                              {asset.assetId}
                             </span>
                             <span className="text-[10px] text-muted-foreground mt-0.5 block">{asset.location}</span>
                           </div>

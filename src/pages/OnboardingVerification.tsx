@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
@@ -9,21 +9,70 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/contexts/data";
+import { apiFetch, BASE_URL } from "@/services/api";
+
 import type { Employee } from "@/types/domain";
 import { toast } from "sonner";
-import { ClipboardList, CheckCircle2, AlertCircle } from "lucide-react";
+import { ClipboardList, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 export default function OnboardingVerificationPage() {
-  const { employees, assets, verifyOnboardingAsset } = useData();
+  const { assets, verifyOnboardingAsset, refreshData } = useData();
 
+  const [pendingEmployees, setPendingEmployees] = useState<Employee[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
   const [reviewingEmployee, setReviewingEmployee] = useState<Employee | null>(null);
   const [remarks, setRemarks] = useState("");
 
-  const verificationQueue = useMemo(() => {
-    return employees.filter(
-      emp => emp.allocationStatus === "Awaiting Asset Verification" || emp.allocationStatus === "Waiting for Inventory"
-    );
-  }, [employees]);
+  const fetchPending = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      const apiUrl = `${BASE_URL}/asset-manager/onboarding/pending`;
+      console.log("[OnboardingVerification] Final request URL:", apiUrl);
+
+      console.log("[OnboardingVerification] Fetching from /asset-manager/onboarding/pending");
+      const response = await apiFetch<any>("/asset-manager/onboarding/pending");
+
+      console.log("[OnboardingVerification] Response status: 200");
+      console.log("Raw response", response);
+
+      const employees =
+        response?.employees ??
+        response?.data?.employees ??
+        response?.data ??
+        [];
+
+      console.log("Employees received:", employees.length);
+
+      const mappedEmployees = employees.map((emp: any) => ({
+        id: emp.EmployeeId,
+        employeeId: emp.EmployeeId,
+        firstName: emp.FirstName,
+        lastName: emp.LastName,
+        email: emp.Email,
+        role: emp.Role,
+        department: emp.Department,
+        location: emp.Location,
+        status: emp.Status,
+        requiredHardwareCategory: emp.RequiredHardwareCategory,
+        createdAt: emp.CreatedAt,
+      }));
+
+      console.log("Mapped employees:", mappedEmployees.length);
+
+      setPendingEmployees(mappedEmployees);
+    } catch (err: any) {
+      console.error("[OnboardingVerification] Error fetching pending employees:", err);
+      toast.error("Failed to load pending onboarding employees");
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPending();
+  }, [fetchPending]);
+
+  console.log("[OnboardingVerification] Rendering with pendingEmployees:", pendingEmployees.length, "loading:", pendingLoading);
 
   const localAvailableAssetsCount = useMemo(() => {
     if (!reviewingEmployee) return 0;
@@ -39,31 +88,47 @@ export default function OnboardingVerificationPage() {
     setRemarks("");
   };
 
-  const handleVerifySubmit = (approved: boolean) => {
+  const handleVerifySubmit = async (approved: boolean) => {
     if (!reviewingEmployee) return;
-    verifyOnboardingAsset(reviewingEmployee.id, approved, remarks, "Asset Manager User");
-    if (approved) {
-      toast.success(`Onboarding approved. Status of ${reviewingEmployee.name} updated to "Ready for Allocation".`);
-    } else {
-      toast.warning(`Allocation flagged as blocked. Status of ${reviewingEmployee.name} set to "Waiting for Inventory". Admin notified.`);
-    }
+    await verifyOnboardingAsset(reviewingEmployee.id, approved, remarks, "Asset Manager User");
+    await refreshData();
+    await fetchPending();
     setReviewingEmployee(null);
   };
 
   const columns: ColumnDef<Employee>[] = [
     { accessorKey: "id", header: "Employee ID" },
-    { accessorKey: "name", header: "Name" },
+    { accessorKey: "name", header: "Employee Name" },
     { accessorKey: "department", header: "Department" },
-    { accessorKey: "requiredAssetCategory", header: "Required Category", cell: ({row}) => <span className="font-semibold text-primary">{row.original.requiredAssetCategory || "Laptop"}</span> },
+    { accessorKey: "location", header: "Location" },
+    { accessorKey: "requiredAssetCategory", header: "Required Hardware Category", cell: ({row}) => <span className="font-semibold text-primary">{row.original.requiredAssetCategory || "Laptop"}</span> },
+    { accessorKey: "status", header: "Status" },
     { accessorKey: "joinDate", header: "Joining Date" },
     { id: "schedule", header: "Allocation Schedule", cell: ({row}) => `${row.original.allocationDate || "Not set"} @ ${row.original.allocationTime || "Not set"}` },
-    { id: "status", header: "Verification Status", cell: ({row}) => <StatusBadge status={row.original.allocationStatus ?? "Awaiting Asset Verification"}/> },
+    { id: "verificationStatus", header: "Verification Status", cell: ({row}) => <StatusBadge status={row.original.allocationStatus ?? "Pending"}/> },
     { id: "actions", header: "", cell: ({row}) => (
       <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleOpenVerifyDialog(row.original); }}>
         Verify Inventory
       </Button>
     )},
   ];
+
+  if (pendingLoading) {
+    return (
+      <>
+        <PageHeader
+          title="Employee Onboarding Verification"
+          description="Verify hardware inventory availability and approve new hire onboarding allocations."
+        />
+        <Card className="p-4 flex items-center justify-center min-h-[200px]">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading pending onboarding employees...</span>
+          </div>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>
@@ -74,7 +139,7 @@ export default function OnboardingVerificationPage() {
 
       <Card className="p-4">
         <DataTable
-          data={verificationQueue}
+          data={pendingEmployees}
           columns={columns}
           searchPlaceholder="Search verification queue…"
           pageSize={15}
@@ -119,7 +184,7 @@ export default function OnboardingVerificationPage() {
                       <AlertCircle className="h-4.5 w-4.5" /> Out of Stock
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      No available {reviewingEmployee.requiredAssetCategory || "Laptop"} assets found in {reviewingEmployee.location}. Procurement needed before Support Engineer can assign hardware.
+                       No available {reviewingEmployee.requiredAssetCategory || "Laptop"} assets found in {reviewingEmployee.location}. Procurement needed before IT Support Team can assign hardware.
                     </div>
                   </div>
                 )}

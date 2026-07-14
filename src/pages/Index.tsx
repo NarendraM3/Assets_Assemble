@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { ROLE_ROUTE, getStoredEmployee } from "@/contexts/auth";
+import { getToken } from "@/services/api";
 
 export default function IndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    const token = localStorage.getItem("itsm.token");
+    const token = getToken();
     if (token) {
       const emp = getStoredEmployee();
       navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
