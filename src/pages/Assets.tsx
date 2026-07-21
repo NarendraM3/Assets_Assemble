@@ -21,16 +21,14 @@ import { useData } from "@/contexts/data";
 import { ImportExcelModal } from "@/components/import/ImportExcelModal";
 import { BulkAddModal } from "@/components/assets/BulkAddModal";
 import { toast } from "sonner";
-import { CATEGORIES as FALLBACK_CATEGORIES, MANUFACTURERS as FALLBACK_MANUFACTURERS, LOCATIONS as FALLBACK_LOCATIONS } from "@/data/mock";
+import { MANUFACTURERS as FALLBACK_MANUFACTURERS } from "@/data/mock";
+import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 
 export default function AssetsPage() {
   const { assets, employees, loading: contextLoading, addAsset, retireAsset, setAssets, refreshData } = useData();
-  const DERIVED_CATEGORIES = uniqueValues(assets.map(a => a.category));
   const DERIVED_MANUFACTURERS = uniqueValues(assets.map(a => a.brand));
-  const DERIVED_LOCATIONS = uniqueValues(assets.map(a => a.location));
-  const CATEGORIES = DERIVED_CATEGORIES.length > 0 ? DERIVED_CATEGORIES : FALLBACK_CATEGORIES;
+  const CATEGORIES = STANDARD_HARDWARE_CATEGORIES;
   const MANUFACTURERS = DERIVED_MANUFACTURERS.length > 0 ? DERIVED_MANUFACTURERS : FALLBACK_MANUFACTURERS;
-  const LOCATIONS = DERIVED_LOCATIONS.length > 0 ? DERIVED_LOCATIONS : FALLBACK_LOCATIONS;
   const [selected, setSelected] = useState<Asset | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -44,9 +42,8 @@ export default function AssetsPage() {
   const [assetCategory, setAssetCategory] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [serial, setSerial] = useState("");
-  const [location, setLocation] = useState("");
 
-  console.log("[AssetsPage] Options:", { CATEGORIES, MANUFACTURERS, LOCATIONS, employeesCount: employees.length });
+  console.log("[AssetsPage] Options:", { CATEGORIES, MANUFACTURERS, employeesCount: employees.length });
 
   useEffect(() => {
     if (searchParams.get("action") === "create") {
@@ -54,7 +51,6 @@ export default function AssetsPage() {
       setAssetCategory("");
       setManufacturer("");
       setSerial("");
-      setLocation("");
       setCreateOpen(true);
       setSearchParams({}, { replace: true });
     }
@@ -71,12 +67,11 @@ export default function AssetsPage() {
     setAssetCategory("");
     setManufacturer("");
     setSerial("");
-    setLocation("");
     setCreateOpen(true);
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !assetCategory || !manufacturer || !serial.trim() || !location) {
+    if (!name.trim() || !assetCategory || !manufacturer || !serial.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -90,7 +85,6 @@ export default function AssetsPage() {
         manufacturer,
         model: `${manufacturer.slice(0, 2).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`,
         serial: serial.trim().toUpperCase(),
-        location,
         assignedTo: null,
         status: "Available",
         purchaseDate: new Date().toISOString().slice(0, 10),
@@ -98,7 +92,10 @@ export default function AssetsPage() {
         cost: Math.floor(Math.random() * 2500) + 500,
       });
       toast.success("Asset Created Successfully");
-      setCreateOpen(false);
+      setName("");
+      setAssetCategory("");
+      setManufacturer("");
+      setSerial("");
     } catch {
     } finally {
       setSaving(false);
@@ -143,7 +140,6 @@ export default function AssetsPage() {
     { accessorKey: "serialNumber", header: "Serial Number" },
     { accessorKey: "purchaseDate", header: "Purchase Date" },
     { accessorKey: "warrantyExpiry", header: "Warranty" },
-    { accessorKey: "location", header: "Location" },
     { id: "assignedTo", header: "Assigned Employee", cell: ({ row }) => getAssignedDisplay(row.original) },
     { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
     { id: "actions", header: "Actions", cell: ({ row }) => (
@@ -182,7 +178,7 @@ export default function AssetsPage() {
     <>
       <PageHeader
         title="Assets"
-        description={assets.length > 0 ? `Manage ${assets.length.toLocaleString()} enterprise assets across all locations.` : "No assets found"}
+        description={assets.length > 0 ? `Manage ${assets.length.toLocaleString()} enterprise assets.` : "No assets found"}
         actions={
           <>
             <DropdownMenu>
@@ -274,7 +270,6 @@ export default function AssetsPage() {
                     <span className="text-muted-foreground">Serial</span><span>{selected.serialNumber}</span>
                     <span className="text-muted-foreground">Purchase Date</span><span>{selected.purchaseDate}</span>
                     <span className="text-muted-foreground">Warranty Expiry</span><span>{selected.warrantyExpiry}</span>
-                    <span className="text-muted-foreground">Location</span><span>{selected.location}</span>
                     <span className="text-muted-foreground">Assigned</span><span>{getAssignedDisplay(selected)}</span>
                   </div>
                 </Card>
@@ -284,7 +279,7 @@ export default function AssetsPage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) refreshData(); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Asset</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -306,17 +301,9 @@ export default function AssetsPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Serial Number</Label>
-                <Input className="mt-1.5" placeholder="SN..." value={serial} onChange={e => setSerial(e.target.value)} />
-              </div>
-              <div><Label>Location</Label>
-                <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label>Serial Number</Label>
+              <Input className="mt-1.5" placeholder="SN..." value={serial} onChange={e => setSerial(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
@@ -339,7 +326,6 @@ export default function AssetsPage() {
         onOpenChange={setBulkOpen}
         categories={CATEGORIES}
         manufacturers={MANUFACTURERS}
-        locations={LOCATIONS}
       />
     </>
   );

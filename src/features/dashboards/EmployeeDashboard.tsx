@@ -371,10 +371,6 @@ export function EmployeeDashboard() {
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Category</span>
                   <span className="font-medium text-foreground block mt-1">{selectedAsset.category || "—"}</span>
                 </div>
-                <div className="border-t pt-3 border-dashed">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Location</span>
-                  <span className="font-medium text-foreground block mt-1">{selectedAsset.location || "—"}</span>
-                </div>
               </div>
 
               {/* Workflow Timeline */}

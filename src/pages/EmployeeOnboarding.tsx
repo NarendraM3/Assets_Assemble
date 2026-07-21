@@ -1,51 +1,97 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
 import { apiFetch } from "@/services/api";
 import { toast } from "sonner";
 import {
-  CheckCircle2, XCircle, Eye, MoreHorizontal, Loader2, User, Calendar, Package
+  WorkflowTimeline,
+  getStatusDisplayLabel,
+  getWorkflowStageLabel,
+  normalizeWorkflowStatus,
+} from "@/components/common/WorkflowTimeline";
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  MoreHorizontal,
+  Loader2,
+  User,
+  Package,
 } from "lucide-react";
 
 interface OnboardingRequest {
   id: string;
   employeeId: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
+  phone?: string;
+  role?: string;
   department: string;
+  designation?: string;
+  location: string;
   requiredHardware: string;
   requestedDate: string;
-  status: "Pending" | "Approved" | "Rejected";
+  joiningDate?: string;
+  allocationDate?: string;
+  allocationTime?: string;
+  allocationStatus?: string;
+  status: string;
   approvedBy: string;
   approvalDate: string;
-  location: string;
+  avatar: string;
+  OnboardingStatus?: string;
+  CurrentWorkflowState?: string;
+  VerificationStatus?: string;
+  InventoryVerified?: boolean;
+  AssignedAssetId?: string;
+  VerifiedBy?: string;
+  AssignedAssetName?: string;
+  AssignedAssetTag?: string;
+  AssignedAssetSerialNumber?: string;
+  Workflow?: string;
+  ITStatus?: string;
+  allocationHistory?: { step: string; timestamp: string; actor: string; remarks?: string }[];
+}
+
+function getEmployeeName(emp: any): string {
+  return emp.EmployeeName || `${emp.FirstName || ""} ${emp.LastName || ""}`.trim() || "-";
+}
+
+function getAvatar(name: string, firstName?: string, lastName?: string): string {
+  if (firstName && lastName) return (firstName[0] + lastName[0]).toUpperCase();
+  const parts = name.split(" ").filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (name[0] || "?").toUpperCase();
 }
 
 export default function EmployeeOnboardingPage() {
   const { user } = useAuth();
-  const { assets, assignAssets, verifyOnboardingAsset, refreshData } = useData();
+  const { assets, refreshData } = useData();
 
   const [requests, setRequests] = useState<OnboardingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
 
-  const [viewingRequest, setViewingRequest] = useState<OnboardingRequest | null>(null);
-  const [remarks, setRemarks] = useState("");
-  const [confirmAction, setConfirmAction] = useState<{ request: OnboardingRequest; action: "approve" | "reject" } | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [itActionProcessing, setItActionProcessing] = useState<string | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
 
   const archiveKey = "onboarding_requests_archive";
 
@@ -69,25 +115,62 @@ export default function EmployeeOnboardingPage() {
   const fetchOnboarding = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch<any>("/asset-manager/onboarding/pending");
-      const employees = response?.employees ?? response?.data?.employees ?? response?.data ?? [];
-      const mapped: OnboardingRequest[] = employees.map((emp: any) => ({
-        id: emp.EmployeeId || emp.id || "",
-        employeeId: emp.EmployeeId || emp.id || "",
-        name: `${emp.FirstName || emp.firstName || ""} ${emp.LastName || emp.lastName || ""}`.trim(),
-        email: emp.Email || emp.email || "",
-        department: emp.Department || emp.department || "",
-        requiredHardware: emp.RequiredHardwareCategory || emp.requiredHardwareCategory || emp.requiredAssetCategory || "Laptop",
-        requestedDate: emp.CreatedAt || emp.createdAt || emp.joinDate || "",
-        status: (emp.Status || emp.status || "Pending") === "Rejected" ? "Rejected" : "Pending",
-        approvedBy: "",
-        approvalDate: "",
-        location: emp.Location || emp.location || "",
-      }));
+      console.log("[IT Support] GET Pending");
+      const response = await apiFetch<any>("/it-support/onboarding/pending");
+      const employees = response?.employees || response?.data || [];
+      console.log("[IT Support] Pending employees:", employees);
+      console.log("Pending Employees:", employees);
+      const mapped: OnboardingRequest[] = employees.map((emp: any) => {
+        const employeeName = getEmployeeName(emp);
+        const firstName = emp.FirstName || "";
+        const lastName = emp.LastName || "";
+
+        return {
+          id: emp.EmployeeId ?? emp.id ?? emp.employeeId ?? "",
+          employeeId: emp.EmployeeId ?? emp.id ?? emp.employeeId ?? "",
+          name: employeeName,
+          firstName,
+          lastName,
+          email: emp.Email ?? emp.email ?? "",
+          phone: emp.Phone ?? emp.phone ?? "",
+          role: emp.Role ?? emp.role ?? "",
+          department: emp.Department ?? emp.department ?? "",
+          designation: emp.Designation ?? emp.designation ?? "",
+          location: emp.Location ?? emp.location ?? "",
+          requiredHardware:
+            emp.RequiredHardwareCategory ??
+            emp.requiredHardwareCategory ??
+            emp.requiredAssetCategory ??
+            "Laptop",
+          requestedDate: emp.CreatedAt ?? emp.createdAt ?? emp.RequestedDate ?? "",
+          joiningDate: emp.JoiningDate ?? emp.joiningDate ?? "",
+          allocationDate: emp.AllocationDate ?? emp.allocationDate ?? "",
+          allocationTime: emp.AllocationTime ?? emp.allocationTime ?? "",
+          allocationStatus: emp.AllocationStatus ?? emp.allocationStatus ?? "",
+          status: emp.Status ?? emp.status ?? emp.OnboardingStatus ?? "",
+          approvedBy: emp.ApprovedBy ?? emp.approvedBy ?? "",
+          approvalDate: emp.ApprovalDate ?? emp.approvalDate ?? "",
+          avatar: getAvatar(employeeName, firstName, lastName),
+          OnboardingStatus: emp.OnboardingStatus ?? emp.onboardingStatus ?? "",
+          CurrentWorkflowState: emp.CurrentWorkflowState ?? emp.currentWorkflowState ?? emp.Workflow ?? "",
+          VerificationStatus: emp.VerificationStatus ?? emp.verificationStatus ?? "",
+          InventoryVerified: emp.InventoryVerified ?? emp.inventoryVerified ?? false,
+          Workflow: emp.Workflow ?? emp.workflow ?? "",
+          ITStatus: emp.ITStatus ?? emp.itStatus ?? "",
+          AssignedAssetId: emp.AssignedAssetId ?? emp.assignedAssetId ?? "",
+          AssignedAssetName: emp.AssignedAssetName ?? emp.assignedAssetName ?? "",
+          AssignedAssetTag: emp.AssignedAssetTag ?? emp.assignedAssetTag ?? "",
+          AssignedAssetSerialNumber:
+            emp.AssignedAssetSerialNumber ?? emp.assignedAssetSerialNumber ?? emp.SerialNumber ?? "",
+          allocationHistory: emp.AllocationHistory ?? emp.allocationHistory ?? [],
+          VerifiedBy: emp.VerifiedBy ?? emp.verifiedBy ?? "",
+        };
+      });
 
       const archived = readArchive();
       const pendingIds = new Set(mapped.map((r) => r.employeeId));
-      setRequests([...mapped, ...archived.filter((r) => !pendingIds.has(r.employeeId))]);
+      const all = [...mapped, ...archived.filter((r) => !pendingIds.has(r.employeeId))];
+      setRequests(all.filter((r) => !isCompleted(r)));
     } catch (err: any) {
       console.error("[EmployeeOnboarding] Error fetching:", err);
       toast.error("Failed to load onboarding requests");
@@ -100,66 +183,107 @@ export default function EmployeeOnboardingPage() {
     fetchOnboarding();
   }, []);
 
-  const markRequest = (request: OnboardingRequest, status: "Approved" | "Rejected") => {
-    const next = {
-      ...request,
-      status,
-      approvedBy: user?.name || "Asset Manager",
-      approvalDate: new Date().toISOString().slice(0, 10),
-    };
+  const isCompleted = useCallback((r: OnboardingRequest) => {
+    const checks = [
+      r.CurrentWorkflowState,
+      r.OnboardingStatus,
+      r.Workflow,
+      r.ITStatus,
+    ];
+    return checks.some((v) => v === "COMPLETED" || v === "Completed");
+  }, []);
 
-    setRequests((prev) => prev.map((r) => (r.employeeId === request.employeeId ? next : r)));
-    upsertArchivedRequest(next);
-  };
-
-  const handleApprove = async (request: OnboardingRequest) => {
-    setProcessing(true);
-    try {
-      const availableAsset = assets.find(
-        (a) =>
-          a.status === "Available" &&
-          a.category === request.requiredHardware &&
-          (!request.location || a.location === request.location)
-      );
-
-      await verifyOnboardingAsset(request.employeeId, true, remarks, user?.name || "Asset Manager");
-
-      if (availableAsset) {
-        await assignAssets(request.employeeId, [availableAsset.assetId]);
-        toast.success("Inventory updated successfully");
-      } else {
-        toast.warning(`No available ${request.requiredHardware} assets found${request.location ? ` in ${request.location}` : ""}. Approved without asset assignment.`);
-      }
-
-      markRequest(request, "Approved");
-      await refreshData();
-      await fetchOnboarding();
-      setConfirmAction(null);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to approve onboarding");
-    } finally {
-      setProcessing(false);
+  const getAssignedAsset = (request: OnboardingRequest) => {
+    if (request.AssignedAssetId) {
+      return assets.find((a) => a.assetId === request.AssignedAssetId);
     }
+    return undefined;
   };
 
-  const handleReject = async (request: OnboardingRequest) => {
-    setProcessing(true);
+  const getAssignedAssetLabel = (request: OnboardingRequest) => {
+    const asset = getAssignedAsset(request);
+    if (asset) return `${asset.assetName} (${asset.assetTag || asset.assetId})`;
+    if (request.AssignedAssetName || request.AssignedAssetTag) {
+      return `${request.AssignedAssetName || "Assigned asset"}${
+        request.AssignedAssetTag ? ` (${request.AssignedAssetTag})` : ""
+      }`;
+    }
+    return "Not assigned yet";
+  };
+
+  const getWorkflowFields = (request: OnboardingRequest) => [
+    request.CurrentWorkflowState,
+    request.OnboardingStatus,
+    request.allocationStatus,
+    request.VerificationStatus,
+  ];
+
+  const getWorkflowLabel = (request: OnboardingRequest) => {
+    const workflowValue =
+      request.CurrentWorkflowState || request.OnboardingStatus || request.allocationStatus;
+    return getStatusDisplayLabel(workflowValue, {
+      verificationStatus: request.VerificationStatus,
+      inventoryVerified: request.InventoryVerified,
+      currentWorkflowState: request.CurrentWorkflowState,
+      onboardingStatus: request.OnboardingStatus,
+    });
+  };
+
+  const isITSupportReviewable = (request: OnboardingRequest) => {
+    if (
+      request.allocationStatus === "Completed" ||
+      request.VerificationStatus === "Completed" ||
+      getWorkflowLabel(request) === "Completed" ||
+      getWorkflowLabel(request) === "Rejected"
+    ) {
+      return false;
+    }
+
+    const reviewableStatuses = new Set([
+      "pending it support",
+      "sent to it support",
+      "sent to it support team",
+      "ready for it support",
+      "it support pending",
+      "ready for allocation",
+    ]);
+
+    return getWorkflowFields(request).some((status) =>
+      reviewableStatuses.has(normalizeWorkflowStatus(status)),
+    );
+  };
+
+  const performItAction = async (request: OnboardingRequest, action: "prepare" | "ready" | "deliver") => {
+    setItActionProcessing(request.employeeId);
+    setOpenDropdownId(null);
     try {
-      await verifyOnboardingAsset(request.employeeId, false, remarks, user?.name || "Asset Manager");
-      markRequest(request, "Rejected");
+      const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+      console.log(`[IT Support] PATCH ${actionLabel}`);
+      await apiFetch(`/it-support/onboarding/${request.employeeId}/${action}`, {
+        method: "PATCH",
+      });
+      toast.success(`IT Support ${actionLabel} completed for ${request.name}`);
       await refreshData();
       await fetchOnboarding();
-      setConfirmAction(null);
     } catch (err: any) {
-      toast.error(err.message || "Failed to reject onboarding");
+      toast.error(err.message || `Failed to ${action} onboarding`);
     } finally {
-      setProcessing(false);
+      setItActionProcessing(null);
     }
   };
 
   const filtered = useMemo(() => {
     if (tab === "all") return requests;
-    return requests.filter((r) => r.status.toLowerCase() === tab);
+    if (tab === "pending-it-support") {
+      return requests.filter(isITSupportReviewable);
+    }
+    if (tab === "verified") {
+      return requests.filter((r) => r.VerificationStatus === "Verified");
+    }
+    if (tab === "out-of-stock") {
+      return requests.filter((r) => r.VerificationStatus === "Out of Stock");
+    }
+    return requests;
   }, [requests, tab]);
 
   const columns: ColumnDef<OnboardingRequest>[] = [
@@ -167,50 +291,129 @@ export default function EmployeeOnboardingPage() {
     { accessorKey: "name", header: "Employee Name" },
     { accessorKey: "department", header: "Department" },
     {
-      accessorKey: "requiredHardware", header: "Required Hardware",
-      cell: ({ row }) => <span className="font-semibold text-primary">{row.original.requiredHardware}</span>
+      accessorKey: "requiredHardware",
+      header: "Required Hardware",
+      cell: ({ row }) => (
+        <span className="font-semibold text-primary">{row.original.requiredHardware}</span>
+      ),
     },
-    { accessorKey: "requestedDate", header: "Requested Date", cell: ({ row }) => row.original.requestedDate ? row.original.requestedDate.slice(0, 10) : "-" },
-    { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
-    { accessorKey: "approvedBy", header: "Approved By", cell: ({ row }) => row.original.approvedBy || "-" },
-    { accessorKey: "approvalDate", header: "Approval Date", cell: ({ row }) => row.original.approvalDate || "-" },
     {
-      id: "actions", header: "Actions",
+      accessorKey: "joiningDate",
+      header: "Joining Date",
+      cell: ({ row }) => (row.original.joiningDate ? row.original.joiningDate.slice(0, 10) : "-"),
+    },
+    {
+      id: "verificationStatus",
+      header: "Verification",
+      cell: ({ row }) => {
+        const vs = row.original.VerificationStatus ?? "";
+        return <StatusBadge status={vs} />;
+      },
+    },
+    {
+      id: "workflow",
+      header: "Workflow",
+      cell: ({ row }) => {
+        const ws = getStatusDisplayLabel(
+          row.original.CurrentWorkflowState ??
+            row.original.OnboardingStatus ??
+            row.original.allocationStatus,
+          {
+            verificationStatus: row.original.VerificationStatus,
+            inventoryVerified: row.original.InventoryVerified,
+            currentWorkflowState: row.original.CurrentWorkflowState,
+            onboardingStatus: row.original.OnboardingStatus,
+          },
+        );
+        return <StatusBadge status={ws} />;
+      },
+    },
+    {
+      accessorKey: "approvedBy",
+      header: "Approved By",
+      cell: ({ row }) => row.original.approvedBy || "-",
+    },
+    {
+      accessorKey: "approvalDate",
+      header: "Approval Date",
+      cell: ({ row }) => row.original.approvalDate || "-",
+    },
+    {
+      id: "actions",
+      header: "Actions",
       cell: ({ row }) => {
         const req = row.original;
-        const isPending = req.status === "Pending";
+        const canReview = isITSupportReviewable(req);
+        if (!canReview) return null;
+
         return (
-          <DropdownMenu>
+          <DropdownMenu
+            open={openDropdownId === req.employeeId}
+            onOpenChange={(o) => setOpenDropdownId(o ? req.employeeId : null)}
+          >
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setViewingRequest(req)}>
-                <Eye className="h-4 w-4 mr-2" />View
-              </DropdownMenuItem>
-              {isPending && (
+              {canReview && (
                 <>
-                  <DropdownMenuItem onClick={() => setConfirmAction({ request: req, action: "approve" })}>
-                    <CheckCircle2 className="h-4 w-4 mr-2 text-success" />Approve
+                  <DropdownMenuItem
+                    disabled={itActionProcessing === req.employeeId}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      performItAction(req, "prepare");
+                    }}
+                  >
+                    {itActionProcessing === req.employeeId ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                    )}
+                    Prepare
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setConfirmAction({ request: req, action: "reject" })}>
-                    <XCircle className="h-4 w-4 mr-2 text-destructive" />Reject
+                  <DropdownMenuItem
+                    disabled={itActionProcessing === req.employeeId}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      performItAction(req, "ready");
+                    }}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Ready
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={itActionProcessing === req.employeeId}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      performItAction(req, "deliver");
+                    }}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Deliver
                   </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
-      }
+      },
     },
   ];
 
   if (loading) {
     return (
       <>
-        <PageHeader title="Employee Onboarding" description="Manage new hire onboarding requests." />
+        <PageHeader
+          title="Employee Onboarding"
+          description="Manage new hire onboarding requests."
+        />
         <Card className="p-4">
           <div className="space-y-3">
             <Skeleton className="h-10 w-full" />
@@ -234,9 +437,16 @@ export default function EmployeeOnboardingPage() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="all">All ({requests.length})</TabsTrigger>
-            <TabsTrigger value="pending">Pending ({requests.filter(r => r.status === "Pending").length})</TabsTrigger>
-            <TabsTrigger value="approved">Approved ({requests.filter(r => r.status === "Approved").length})</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected ({requests.filter(r => r.status === "Rejected").length})</TabsTrigger>
+            <TabsTrigger value="pending-it-support">
+              Pending IT Support ({requests.filter(isITSupportReviewable).length})
+            </TabsTrigger>
+            <TabsTrigger value="verified">
+              Verified ({requests.filter((r) => r.VerificationStatus === "Verified").length})
+            </TabsTrigger>
+            <TabsTrigger value="out-of-stock">
+              Out of Stock ({requests.filter((r) => r.VerificationStatus === "Out of Stock").length}
+              )
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </Card>
@@ -248,113 +458,115 @@ export default function EmployeeOnboardingPage() {
           searchPlaceholder="Search by name, ID, department..."
           pageSize={15}
           emptyMessage="No onboarding requests found"
+          onRowClick={setSelectedRequest}
         />
       </Card>
 
-      <Sheet open={!!viewingRequest} onOpenChange={(o) => !o && setViewingRequest(null)}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
-          {viewingRequest && (
-            <>
-              <SheetHeader className="p-0 mb-4">
-                <div className="text-xs text-muted-foreground">{viewingRequest.employeeId}</div>
-                <SheetTitle className="text-xl">{viewingRequest.name}</SheetTitle>
-                <div className="mt-2"><StatusBadge status={viewingRequest.status} /></div>
-              </SheetHeader>
-              <div className="space-y-4">
-                <Card className="p-4">
-                  <div className="font-semibold text-sm mb-3">Onboarding Details</div>
-                  <div className="grid grid-cols-2 gap-y-2 text-sm">
-                    <span className="text-muted-foreground">Employee ID</span>
-                    <span>{viewingRequest.employeeId}</span>
-                    <span className="text-muted-foreground">Email</span>
-                    <span>{viewingRequest.email}</span>
-                    <span className="text-muted-foreground">Department</span>
-                    <span>{viewingRequest.department}</span>
-                    <span className="text-muted-foreground">Location</span>
-                    <span>{viewingRequest.location}</span>
-                    <span className="text-muted-foreground">Required Hardware</span>
-                    <span className="font-semibold text-primary">{viewingRequest.requiredHardware}</span>
-                    <span className="text-muted-foreground">Requested Date</span>
-                    <span>{viewingRequest.requestedDate ? viewingRequest.requestedDate.slice(0, 10) : "-"}</span>
-                    {viewingRequest.status !== "Pending" && (
-                      <>
-                        <span className="text-muted-foreground">Approved By</span>
-                        <span>{viewingRequest.approvedBy}</span>
-                        <span className="text-muted-foreground">Approval Date</span>
-                        <span>{viewingRequest.approvalDate}</span>
-                      </>
-                    )}
+      <Sheet open={!!selectedRequest} onOpenChange={(o) => !o && setSelectedRequest(null)}>
+        <SheetContent className="sm:max-w-[550px] overflow-y-auto h-full pr-6">
+          <SheetHeader className="border-b pb-4 mb-4">
+            <SheetTitle className="flex items-center gap-2 text-lg">
+              <User className="h-5 w-5 text-primary" /> Employee Workflow Details
+            </SheetTitle>
+          </SheetHeader>
+          {selectedRequest && (
+            <div className="space-y-6 text-sm">
+              <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-lg border">
+                <Avatar className="h-14 w-14 border-2 border-primary/20">
+                  <AvatarFallback className="text-base font-bold bg-primary/10 text-primary">
+                    {selectedRequest.avatar}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs uppercase font-bold text-primary tracking-wider">
+                    {selectedRequest.designation || selectedRequest.role || ""}
                   </div>
-                </Card>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <Dialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {confirmAction?.action === "approve" ? (
-                <><CheckCircle2 className="h-5 w-5 text-success" /> Approve Onboarding</>
-              ) : (
-                <><XCircle className="h-5 w-5 text-destructive" /> Reject Onboarding</>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {confirmAction?.action === "approve"
-                ? "This will approve the hardware request and assign an available asset."
-                : "This will reject the onboarding hardware request."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {confirmAction && (
-            <div className="space-y-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{confirmAction.request.name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <span>{confirmAction.request.requiredHardware}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>{confirmAction.request.requestedDate?.slice(0, 10) || "-"}</span>
+                  <h4 className="font-bold text-lg text-foreground truncate">
+                    {selectedRequest.name}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {selectedRequest.employeeId}
+                    </span>
+                    <StatusBadge status={selectedRequest.status || "Active"} />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Remarks</Label>
-                <Textarea
-                  className="mt-1.5 text-sm"
-                  placeholder="Add remarks..."
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
+              <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-card shadow-sm">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                    Department
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {selectedRequest.department || "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                    Email
+                  </span>
+                  <span className="font-medium text-foreground break-all">
+                    {selectedRequest.email || "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                    Joining Date
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {selectedRequest.joiningDate || "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                    Required Hardware
+                  </span>
+                  <span className="font-semibold text-primary">
+                    {selectedRequest.requiredHardware || "-"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                    Assigned Asset
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {getAssignedAssetLabel(selectedRequest)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-card shadow-sm">
+                <h5 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2.5">
+                  Workflow Timeline
+                </h5>
+                <div className="grid grid-cols-2 gap-y-2 text-xs mb-3">
+                  <span className="text-muted-foreground">Current Stage:</span>
+                  <span className="font-medium text-foreground">
+                    {getWorkflowStageLabel(
+                      selectedRequest.CurrentWorkflowState ||
+                        selectedRequest.OnboardingStatus ||
+                        selectedRequest.allocationStatus,
+                    )}
+                  </span>
+                  <span className="text-muted-foreground">Workflow Status:</span>
+                  <span>
+                    <StatusBadge status={getWorkflowLabel(selectedRequest)} />
+                  </span>
+                </div>
+                <WorkflowTimeline
+                  allocationStatus={
+                    selectedRequest.CurrentWorkflowState ||
+                    selectedRequest.OnboardingStatus ||
+                    selectedRequest.allocationStatus
+                  }
+                  verificationStatus={selectedRequest.VerificationStatus}
                 />
               </div>
             </div>
           )}
-
-          <DialogFooter className="gap-2 sm:gap-0 mt-2">
-            <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={processing}>Cancel</Button>
-            <Button
-              variant={confirmAction?.action === "approve" ? "default" : "destructive"}
-              onClick={() => {
-                if (confirmAction?.action === "approve") handleApprove(confirmAction.request);
-                else if (confirmAction) handleReject(confirmAction.request);
-              }}
-              disabled={processing}
-            >
-              {processing ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</>
-              ) : (
-                <>{confirmAction?.action === "approve" ? "Approve" : "Reject"}</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

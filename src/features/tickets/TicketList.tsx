@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
@@ -13,8 +13,9 @@ import type { Role, Ticket } from "@/types/domain";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 import { toast } from "sonner";
-import { AlertCircle, RefreshCw, Inbox } from "lucide-react";
+import { AlertCircle, RefreshCw, Inbox, Eye } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ManageTicketModal } from "./ManageTicketModal";
 
 export interface TicketListProps {
   title: string;
@@ -65,33 +66,40 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<string>("all");
   const [comment, setComment] = useState("");
-
-  useEffect(() => {
-    refreshData();
-  }, []);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
   const scopedTickets = useMemo(() => {
+    console.log(`[TicketList] Computing scopedTickets from ${tickets.length} total tickets for role "${role}"`);
+    let result: Ticket[];
     if (role === "it_support_team") {
-      return tickets.filter(t => t.assignedRole !== "admin" && t.assignedRole !== "asset_manager");
+      result = tickets.filter(t => t.assignedRole !== "admin" && t.assignedRole !== "asset_manager");
+    } else if (role === "admin") {
+      result = tickets.filter(t => t.status === "Pending Administration Approval" || t.status === "Approved for Asset Manager" || t.status === "Resolved");
+    } else if (role === "asset_manager") {
+      result = tickets.filter(t => t.status === "Approved for Asset Manager" || (t.status === "Resolved" && !!t.assetResolution));
+    } else {
+      result = tickets;
     }
-    if (role === "admin") {
-      return tickets.filter(t => t.status === "Pending Administration Approval" || t.status === "Approved for Asset Manager" || t.status === "Resolved");
-    }
-    if (role === "asset_manager") {
-      return tickets.filter(t => t.status === "Approved for Asset Manager" || (t.status === "Resolved" && !!t.assetResolution));
-    }
-    return tickets;
+    console.log(`[TicketList] scopedTickets count: ${result.length}`);
+    return result;
   }, [role, tickets]);
 
   const data = useMemo(() => {
     let list = filter ? scopedTickets.filter(filter) : scopedTickets;
+    console.log(`[TicketList] After role filter: ${list.length} tickets`);
     if (tab !== "all") {
       list = list.filter(t => role === "employee" ? displayStatus(t, role) === tab : t.status === tab);
+      console.log(`[TicketList] After tab "${tab}" filter: ${list.length} tickets`);
     }
+    console.log(`[TicketList] Final data count: ${list.length}`);
     return list;
   }, [filter, role, scopedTickets, tab]);
 
   const selected = selectedId ? tickets.find(t => t.id === selectedId) ?? null : null;
+  if (selected) {
+    console.log("[TicketList] Selected ticket:", { id: selected.id, title: selected.title, attachments: selected.attachments, status: selected.status });
+  }
 
   const actor = user?.name || `${role} User`;
 
@@ -103,6 +111,12 @@ export function TicketList({ title, description, filter, actions, workflowRole }
   };
 
   const withRemarks = (fallback: string) => comment.trim() || fallback;
+
+  const handleManage = (ticket: Ticket) => {
+    console.log("Manage Ticket:", ticket);
+    setSelectedTicket(ticket);
+    setIsManageModalOpen(true);
+  };
 
   const columns = useMemo<ColumnDef<Ticket>[]>(() => {
     const cols: ColumnDef<Ticket>[] = [
@@ -118,7 +132,27 @@ export function TicketList({ title, description, filter, actions, workflowRole }
       cols.push({ id: "sla", header: "SLA", cell: ({ row }) => <StatusBadge status={row.original.sla} /> });
     }
 
+    if (role === "it_support_team") {
+      cols.push({
+        id: "action",
+        header: "Action",
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleManage(row.original);
+            }}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            Manage
+          </Button>
+        ),
+      });
+    }
+
     cols.push(
+      { id: "estimatedResolutionTime", header: "Estimated Resolution Time", cell: ({ row }) => row.original.EstimatedResolutionTime || "Not Estimated Yet" },
       { id: "status", header: "Status", cell: ({ row }) => <StatusBadge status={displayStatus(row.original, role)} /> },
       { accessorKey: "updatedAt", header: "Updated" }
     );
@@ -272,12 +306,12 @@ export function TicketList({ title, description, filter, actions, workflowRole }
               </div>
               <div className="text-sm mb-6">{selected.description}</div>
 
-              {selected.attachments && selected.attachments.length > 0 && (
+              {Array.isArray(selected.attachments) && selected.attachments.length > 0 && (
                 <div className="mb-6 space-y-2">
                   <div className="font-semibold text-sm">Attachments</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {selected.attachments.map((url, idx) => {
-                      const fileName = url.substring(url.indexOf("_") + 1);
+                      const fileName = typeof url === "string" ? url.substring(url.indexOf("_") + 1) : String(url);
                       return (
                         <a
                           key={idx}
@@ -332,6 +366,16 @@ export function TicketList({ title, description, filter, actions, workflowRole }
           )}
         </SheetContent>
       </Sheet>
+
+      <ManageTicketModal
+        open={isManageModalOpen}
+        ticket={selectedTicket}
+        onClose={() => {
+          setIsManageModalOpen(false);
+          setSelectedTicket(null);
+        }}
+        onUpdated={refreshData}
+      />
     </>
   );
 }

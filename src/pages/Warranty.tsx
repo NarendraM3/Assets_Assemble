@@ -41,7 +41,7 @@ export default function WarrantyPage() {
       const tone = d < 0 ? "text-destructive" : d < 30 ? "text-warning" : "text-success";
       return <span className={cn("font-medium", tone)}>{d < 0 ? `${Math.abs(d)}d ago` : `${d}d`}</span>;
     }},
-    { accessorKey: "location", header: "Location" },
+
   ];
 
   return (

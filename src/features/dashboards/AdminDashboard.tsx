@@ -12,7 +12,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
 import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
 import { getRoleLabel } from "@/lib/utils";
@@ -234,6 +236,77 @@ export function AdminDashboard() {
         </ChartCard>
       </div>
       </>)}
+      {/* Employee Onboarding Workflow Section */}
+      {!loading && (
+        <Card className="p-4 mt-6">
+          <div className="font-semibold text-sm mb-3 flex items-center justify-between">
+            <span>Employee Onboarding Workflow</span>
+            <span className="text-xs text-muted-foreground font-normal">
+              {employees.filter(e => e.allocationStatus && e.allocationStatus !== "Completed").length} in progress
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Department</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Workflow Timeline</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Stage</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {employees.filter(e => e.allocationStatus).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                      No employees with active workflow found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  employees
+                    .filter(e => e.allocationStatus)
+                    .sort((a, b) => {
+                      const order: Record<string, number> = { "Awaiting Asset Verification": 0, "Ready for Allocation": 1, "Sent to IT Support Team": 1, "Assigned to IT Support": 2, "IT Asset Assignment In Progress": 2, "Asset Allocated": 3, "Assets Allocated": 3, "Ready for Delivery": 3, "Completed": 4 };
+                      return (order[a.allocationStatus ?? ""] ?? 0) - (order[b.allocationStatus ?? ""] ?? 0);
+                    })
+                    .map((emp) => (
+                      <TableRow
+                        key={emp.id}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedEmp(emp)}
+                      >
+                        <TableCell className="text-sm whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center">
+                              {emp.avatar || emp.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-sm">{emp.name}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono">{emp.id}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{emp.department || "-"}</TableCell>
+                        <TableCell className="min-w-[280px]">
+                          <WorkflowTimeline allocationStatus={emp.allocationStatus} variant="horizontal" />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {getWorkflowStageLabel(emp.allocationStatus)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <StatusBadge status={emp.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
       {/* Employee Full Profile Drawer */}
       <Sheet open={!!selectedEmp} onOpenChange={(o) => !o && setSelectedEmp(null)}>
         <SheetContent className="sm:max-w-[550px] overflow-y-auto h-full pr-6">
@@ -304,6 +377,32 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Workflow Timeline */}
+                  {selectedEmp.allocationStatus && (
+                    <div>
+                      <h5 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2.5">Asset Onboarding Workflow</h5>
+                      <div className="border rounded-lg p-4 bg-card shadow-sm">
+                        <div className="grid grid-cols-2 gap-y-2 text-xs mb-3">
+                          <span className="text-muted-foreground">Current Stage:</span>
+                          <span className="font-medium text-foreground">{getWorkflowStageLabel(selectedEmp.allocationStatus)}</span>
+                          {selectedEmp.allocationDate && (
+                            <>
+                              <span className="text-muted-foreground">Scheduled Date:</span>
+                              <span className="font-medium text-foreground">{selectedEmp.allocationDate}{selectedEmp.allocationTime ? ` @ ${selectedEmp.allocationTime}` : ""}</span>
+                            </>
+                          )}
+                          {selectedEmp.requiredAssetCategory && (
+                            <>
+                              <span className="text-muted-foreground">Required Asset:</span>
+                              <span className="font-semibold text-primary">{selectedEmp.requiredAssetCategory}</span>
+                            </>
+                          )}
+                        </div>
+                        <WorkflowTimeline allocationStatus={selectedEmp.allocationStatus} />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Personal Contact & Security */}
                   <div>

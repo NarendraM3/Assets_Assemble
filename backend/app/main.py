@@ -9,6 +9,7 @@ from app.routers import (
     auth, dashboard, users, assets, tickets,
     assignments, vendors, maintenance, audit_logs,
     notifications, knowledge_base, admin as admin_router_module,
+    support,
 )
 import os
 import logging
@@ -105,6 +106,7 @@ app.include_router(audit_logs.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(knowledge_base.router, prefix="/api")
 app.include_router(admin_router_module.router, prefix="/api")
+app.include_router(support.router, prefix="/api")
 
 
 @app.get("/api/health")

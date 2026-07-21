@@ -44,6 +44,7 @@ class UserResponse(UserBase):
     allocation_date: Optional[str] = None
     allocation_time: Optional[str] = None
     allocation_status: Optional[str] = None
+    verification_status: Optional[str] = None
     required_asset_category: Optional[str] = None
     allocated_asset_details: Optional[Dict[str, Any]] = None
     allocation_history: Optional[List[Dict[str, Any]]] = None

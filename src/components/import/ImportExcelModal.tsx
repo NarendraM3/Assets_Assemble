@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, Download, FileSpreadsheet, FileText, X, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiUpload } from "@/services/api";
+import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 import * as XLSX from "xlsx";
 
 const ALLOWED_TYPES = [".xlsx", ".xls", ".csv", ".pdf"];
@@ -47,6 +48,28 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadSample = () => {
+    const columns = ["Asset Name", "Category", "Brand", "Model", "Serial Number", "Purchase Date", "Warranty Expiry Date", "Status"];
+    const sampleData = [{
+      "Asset Name": "Dell Latitude 5540",
+      "Category": "Laptop",
+      "Brand": "Dell",
+      "Model": "Latitude 5540",
+      "Serial Number": "SN1234567890",
+      "Purchase Date": "2026-01-15",
+      "Warranty Expiry Date": "2028-01-15",
+      "Status": "Available",
+    }];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(sampleData, { header: columns });
+    XLSX.utils.book_append_sheet(wb, ws, "Assets");
+    const categoryWs = XLSX.utils.json_to_sheet(
+      STANDARD_HARDWARE_CATEGORIES.map((category) => ({ Category: category }))
+    );
+    XLSX.utils.book_append_sheet(wb, categoryWs, "Allowed Categories");
+    XLSX.writeFile(wb, "asset_import_sample.xlsx");
+  };
 
   const resetState = useCallback(() => {
     setFile(null);
@@ -112,7 +135,7 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
       const formData = new FormData();
       formData.append("file", file);
 
-      const endpoint = isExcelFile(file) ? "/asset-manager/import" : "/asset-manager/import/pdf";
+      const endpoint = isExcelFile(file) ? "/asset-manager/bulk" : "/asset-manager/import/pdf";
       const response = await apiUpload(endpoint, formData);
 
       clearInterval(progressInterval);
@@ -237,9 +260,15 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
               />
 
               {!file && (
-                <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
-                  Choose File
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()}>
+                    Choose File
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={handleDownloadSample}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Sample Excel
+                  </Button>
+                </div>
               )}
 
               {isPdf && file && !uploading && (

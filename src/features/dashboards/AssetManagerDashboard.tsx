@@ -14,15 +14,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { assetStats, normalizeAssetStatus } from "@/lib/assets";
+import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
+import * as XLSX from "xlsx";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
 const STATUS_OPTIONS = ["Available", "Assigned", "Under Maintenance", "Out of Stock"];
+
+function handleDownloadSample() {
+  const columns = ["Asset Name", "Category", "Brand", "Model", "Serial Number", "Purchase Date", "Warranty Expiry Date", "Status"];
+  const sampleData = [{
+    "Asset Name": "Dell Latitude 5540",
+    "Category": "Laptop",
+    "Brand": "Dell",
+    "Model": "Latitude 5540",
+    "Serial Number": "SN1234567890",
+    "Purchase Date": "2026-01-15",
+    "Warranty Expiry Date": "2028-01-15",
+    "Status": "Available",
+  }];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(sampleData, { header: columns });
+  XLSX.utils.book_append_sheet(wb, ws, "Assets");
+  const categoryWs = XLSX.utils.json_to_sheet(
+    STANDARD_HARDWARE_CATEGORIES.map((category) => ({ Category: category }))
+  );
+  XLSX.utils.book_append_sheet(wb, categoryWs, "Allowed Categories");
+  XLSX.writeFile(wb, "asset_import_sample.xlsx");
+}
 
 export function AssetManagerDashboard() {
   const [summary, setSummary] = useState<any>(null);
@@ -37,6 +63,7 @@ export function AssetManagerDashboard() {
   const pageSize = 10;
 
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  const [selectedWorkflowEmp, setSelectedWorkflowEmp] = useState<any>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
@@ -49,27 +76,46 @@ export function AssetManagerDashboard() {
   const [createManufacturer, setCreateManufacturer] = useState("");
   const [createModel, setCreateModel] = useState("");
   const [createSerial, setCreateSerial] = useState("");
-  const [createLocation, setCreateLocation] = useState("");
 
   const loadData = useCallback(async () => {
-    console.log("Loading Assets...");
+    console.log("==========================================");
+    console.log("[AssetManagerDashboard] Loading dashboard data...");
+    const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+    console.log("[AssetManagerDashboard] API Base URL:", apiBase);
+    console.log("[AssetManagerDashboard] Dashboard endpoint:", `${apiBase}/asset-manager/dashboard`);
     setLoading(true);
-    setError(null);
 
     try {
       try {
+        console.log("[AssetManagerDashboard] >>> REQUEST: GET /asset-manager/dashboard");
         const dashData = await apiFetch<any>("/asset-manager/dashboard");
-        setSummary(dashData?.summary ?? null);
+        console.log("[AssetManagerDashboard] <<< RESPONSE STATUS: 200");
+        console.log("[AssetManagerDashboard] <<< RESPONSE BODY:", dashData);
+        setSummary(dashData?.summary ?? dashData ?? null);
       } catch (dashErr: any) {
-        console.warn("Dashboard summary failed:", dashErr.message);
-        toast.error(dashErr.message || "Failed to load dashboard summary");
+        console.warn("[AssetManagerDashboard] Dashboard summary failed:", dashErr.message);
+        console.warn("[AssetManagerDashboard] HTTP Status:", dashErr.status ?? "N/A");
+        console.warn("[AssetManagerDashboard] Error body:", dashErr.body ?? "N/A");
         setSummary(null);
       }
 
       try {
+        console.log("[AssetManagerDashboard] >>> REQUEST: GET /asset-manager");
         const response = await apiFetch<any>("/asset-manager");
-        console.log("Assets API Response", response);
-        const rawAssets = Array.isArray(response) ? response : (response?.data ?? []);
+        console.log("[AssetManagerDashboard] <<< RESPONSE STATUS: 200");
+        console.log("Assets API Response:", response);
+
+        let rawAssets: any[] = [];
+        if (Array.isArray(response)) {
+          rawAssets = response;
+        } else if (response?.assets && Array.isArray(response.assets)) {
+          rawAssets = response.assets;
+        } else if (response?.data?.assets && Array.isArray(response.data.assets)) {
+          rawAssets = response.data.assets;
+        } else if (response?.data && Array.isArray(response.data)) {
+          rawAssets = response.data;
+        }
+
         const assets = rawAssets.map((item: any) => ({
           assetId: item.AssetId || item.assetId || item.display_id || item.id || "",
           assetName: item.AssetName || item.assetName || item.name || "",
@@ -82,7 +128,6 @@ export function AssetManagerDashboard() {
           assignedTo: item.AssignedTo || item.assignedTo || item.assigned_to_id || null,
           purchaseDate: item.PurchaseDate || item.purchaseDate || item.purchase_date || "",
           warrantyExpiry: item.WarrantyExpiry || item.warrantyExpiry || item.warranty_expiry || "",
-          location: item.Location || item.location || "",
           condition: item.Condition || item.condition || "",
           vendor: item.Vendor || item.vendor || "",
           createdAt: item.CreatedAt || item.createdAt || item.created_at || "",
@@ -92,22 +137,37 @@ export function AssetManagerDashboard() {
           hardwareRequired: item.HardwareRequired || item.hardwareRequired || "",
         }));
         setAllAssets(assets);
+        console.log(`[AssetManagerDashboard] Total assets received: ${rawAssets.length}`);
+        if (rawAssets.length > 0) {
+          console.log("[AssetManagerDashboard] First asset object:", rawAssets[0]);
+        }
+        console.log("[AssetManagerDashboard] Assets stored in state:", assets.length);
+        setError(null);
       } catch (assetsErr: any) {
-        console.error("Asset list fetch error:", assetsErr);
-        setError(assetsErr.message || "Unable to load assets.");
+        console.error("[AssetManagerDashboard] Asset list fetch error:", assetsErr);
+        console.error("[AssetManagerDashboard] HTTP Status:", assetsErr.status ?? "Unknown");
+        console.error("[AssetManagerDashboard] Error body:", assetsErr.body ?? "N/A");
+        setError("Unable to load dashboard. Please try again.");
         return;
       }
 
       try {
+        console.log("[AssetManagerDashboard] >>> REQUEST: GET /admin/employees?limit=10000");
         const empData = await apiFetch<any>("/admin/employees?limit=10000");
-        const empItems = Array.isArray(empData) ? empData : empData?.items || [];
+        console.log("[AssetManagerDashboard] <<< RESPONSE STATUS: 200");
+        const empCount = Array.isArray(empData) ? empData.length : empData?.items?.length ?? 0;
+        console.log("[AssetManagerDashboard] <<< Employees count:", empCount);
+        const empItems = Array.isArray(empData) ? empData : empData?.items ?? [];
         setEmployees(empItems);
       } catch (err: any) {
-        console.warn("Failed to fetch employees:", err.message);
+        console.warn("[AssetManagerDashboard] Failed to fetch employees:", err.message);
+        console.warn("[AssetManagerDashboard] HTTP Status:", err.status ?? "N/A");
       }
     } catch (err: any) {
-      console.error("Asset load error:", err);
-      setError(err.message || "Unable to load assets.");
+      console.error("[AssetManagerDashboard] Dashboard load error:", err);
+      console.error("[AssetManagerDashboard] HTTP Status:", err.status ?? "Unknown");
+      console.error("[AssetManagerDashboard] Error body:", err.body ?? "N/A");
+      setError("Unable to load dashboard. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -115,6 +175,10 @@ export function AssetManagerDashboard() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [loadData]);
 
   const stats = useMemo(() => {
@@ -181,7 +245,7 @@ export function AssetManagerDashboard() {
   }, [statusFilter, search]);
 
   const handleCreate = async () => {
-    if (!createName.trim() || !createCategory || !createManufacturer || !createSerial.trim() || !createLocation) {
+    if (!createName.trim() || !createCategory || !createManufacturer || !createSerial.trim()) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -193,7 +257,6 @@ export function AssetManagerDashboard() {
         Manufacturer: createManufacturer,
         Model: createModel.trim() || `${createManufacturer.slice(0, 2).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`,
         SerialNumber: createSerial.trim().toUpperCase(),
-        Location: createLocation,
         PurchaseDate: todayStr(),
         WarrantyExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
         Cost: Math.floor(Math.random() * 2500) + 500,
@@ -213,7 +276,6 @@ export function AssetManagerDashboard() {
       setCreateManufacturer("");
       setCreateModel("");
       setCreateSerial("");
-      setCreateLocation("");
       await loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to create asset");
@@ -232,7 +294,6 @@ export function AssetManagerDashboard() {
       if (editTarget._editManufacturer) body.manufacturer = editTarget._editManufacturer;
       if (editTarget._editModel?.trim()) body.model = editTarget._editModel.trim();
       if (editTarget._editSerial?.trim()) body.serial = editTarget._editSerial.trim().toUpperCase();
-      if (editTarget._editLocation) body.location = editTarget._editLocation;
       if (editTarget._editStatus) body.status = editTarget._editStatus;
 
       await apiFetch(`/asset-manager/${editTarget.assetId}`, {
@@ -268,7 +329,6 @@ export function AssetManagerDashboard() {
       _editManufacturer: asset.brand || "",
       _editModel: asset.model || "",
       _editSerial: asset.serialNumber || "",
-      _editLocation: asset.location || "",
       _editStatus: asset.status || "Available",
     });
     setEditOpen(true);
@@ -292,7 +352,7 @@ export function AssetManagerDashboard() {
     return <span>Assigned to: {a.assignedTo}</span>;
   }
 
-  if (loading) {
+  if (loading && !error) {
     return (
       <>
         <PageHeader title="Asset Manager Dashboard" description="Loading assets from database..." />
@@ -321,8 +381,10 @@ export function AssetManagerDashboard() {
       <>
         <PageHeader title="Asset Manager Dashboard" description="Error loading data" />
         <Card className="p-8 text-center">
-          <p className="text-destructive font-medium text-lg">{error}</p>
-          <Button className="mt-4" variant="outline" onClick={loadData}>Retry</Button>
+          <p className="text-destructive font-medium text-lg">Unable to load dashboard. Please try again.</p>
+          <Button className="mt-4" variant="outline" onClick={loadData} disabled={loading}>
+            {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Retrying...</> : "Retry"}
+          </Button>
         </Card>
       </>
     );
@@ -335,11 +397,11 @@ export function AssetManagerDashboard() {
         description="Lifecycle metrics, deployment status, and inventory health."
         actions={
           <>
+            <Button variant="outline" onClick={handleDownloadSample}>
+              <Download className="h-4 w-4 mr-1" />Download Sample
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <FileUp className="h-4 w-4 mr-1" />Import
-            </Button>
-            <Button variant="outline" onClick={() => toast.success("Export queued")}>
-              <Download className="h-4 w-4 mr-1" />Export
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -413,7 +475,6 @@ export function AssetManagerDashboard() {
                     <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Assigned Employee</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Purchase Date</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Warranty</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Location</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Created Date</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Actions</TableHead>
                   </TableRow>
@@ -431,7 +492,6 @@ export function AssetManagerDashboard() {
                       <TableCell className="text-sm whitespace-nowrap">{renderAssigned(a)}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDate(a.purchaseDate)}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDate(a.warrantyExpiry)}</TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{a.location || "-"}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDate(a.createdAt)}</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -473,6 +533,144 @@ export function AssetManagerDashboard() {
         )}
       </Card>
 
+      {/* Employee Onboarding Workflow Queue */}
+      <Card className="p-4 mt-6">
+        <div className="font-semibold text-sm mb-3 flex items-center justify-between">
+          <span>Employee Onboarding Workflow</span>
+          <span className="text-xs text-muted-foreground font-normal">
+            {employees.filter((e: any) => e.allocationStatus && e.allocationStatus !== "Completed").length} in progress
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Department</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Workflow Timeline</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Stage</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {employees.filter((e: any) => e.allocationStatus).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                    No employees with active workflow found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (employees as any[])
+                  .filter((e: any) => e.allocationStatus)
+                  .sort((a: any, b: any) => {
+                    const order: Record<string, number> = { "Awaiting Asset Verification": 0, "Ready for Allocation": 1, "Sent to IT Support Team": 1, "Assigned to IT Support": 2, "IT Asset Assignment In Progress": 2, "Asset Allocated": 3, "Assets Allocated": 3, "Ready for Delivery": 3, "Completed": 4 };
+                    return (order[a.allocationStatus ?? ""] ?? 0) - (order[b.allocationStatus ?? ""] ?? 0);
+                  })
+                  .map((emp: any) => (
+                    <TableRow
+                      key={emp.id}
+                      className="cursor-pointer"
+                      onClick={() => setSelectedWorkflowEmp(emp)}
+                    >
+                      <TableCell className="text-sm whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center">
+                            {emp.avatar || emp.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "NA"}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{emp.name}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono">{emp.id}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{emp.department || "-"}</TableCell>
+                      <TableCell className="min-w-[280px]">
+                        <WorkflowTimeline allocationStatus={emp.allocationStatus} variant="horizontal" />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {getWorkflowStageLabel(emp.allocationStatus)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <StatusBadge status={emp.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      {/* Employee Workflow Detail Sheet */}
+      <Sheet open={!!selectedWorkflowEmp} onOpenChange={(o) => !o && setSelectedWorkflowEmp(null)}>
+        <SheetContent className="sm:max-w-[550px] overflow-y-auto h-full pr-6">
+          <SheetHeader className="border-b pb-4 mb-4">
+            <SheetTitle className="flex items-center gap-2 text-lg">
+              <Package className="h-5 w-5 text-primary" /> Employee Workflow Details
+            </SheetTitle>
+          </SheetHeader>
+          {selectedWorkflowEmp && (
+            <div className="space-y-6 text-sm">
+              <div className="flex items-center gap-4 p-4 bg-muted/40 rounded-lg border">
+                <Avatar className="h-14 w-14 border-2 border-primary/20">
+                  <AvatarFallback className="text-base font-bold bg-primary/10 text-primary">
+                    {selectedWorkflowEmp.avatar || selectedWorkflowEmp.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "NA"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs uppercase font-bold text-primary tracking-wider">{selectedWorkflowEmp.designation || ""}</div>
+                  <h4 className="font-bold text-lg text-foreground truncate">{selectedWorkflowEmp.name}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-xs text-muted-foreground">{selectedWorkflowEmp.id}</span>
+                    <StatusBadge status={selectedWorkflowEmp.status} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-card shadow-sm">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Department</span>
+                  <span className="font-medium text-foreground">{selectedWorkflowEmp.department || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Email</span>
+                  <span className="font-medium text-foreground break-all">{selectedWorkflowEmp.email || "-"}</span>
+                </div>
+                {selectedWorkflowEmp.joinDate && (
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Join Date</span>
+                    <span className="font-medium text-foreground">{selectedWorkflowEmp.joinDate}</span>
+                  </div>
+                )}
+                {selectedWorkflowEmp.allocationDate && (
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Scheduled Date</span>
+                    <span className="font-medium text-foreground">{selectedWorkflowEmp.allocationDate}{selectedWorkflowEmp.allocationTime ? ` @ ${selectedWorkflowEmp.allocationTime}` : ""}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border rounded-lg p-4 bg-card shadow-sm">
+                <h5 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2.5">Asset Onboarding Workflow</h5>
+                <div className="grid grid-cols-2 gap-y-2 text-xs mb-3">
+                  <span className="text-muted-foreground">Current Stage:</span>
+                  <span className="font-medium text-foreground">{getWorkflowStageLabel(selectedWorkflowEmp.allocationStatus)}</span>
+                  {selectedWorkflowEmp.requiredAssetCategory && (
+                    <>
+                      <span className="text-muted-foreground">Required Asset:</span>
+                      <span className="font-semibold text-primary">{selectedWorkflowEmp.requiredAssetCategory}</span>
+                    </>
+                  )}
+                </div>
+                <WorkflowTimeline allocationStatus={selectedWorkflowEmp.allocationStatus} />
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <Sheet open={!!selectedAsset} onOpenChange={(o) => !o && setSelectedAsset(null)}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
           {selectedAsset && (
@@ -492,7 +690,6 @@ export function AssetManagerDashboard() {
                     <span className="text-muted-foreground">Serial</span><span>{selectedAsset.serialNumber || "-"}</span>
                     <span className="text-muted-foreground">Purchase Date</span><span>{formatDate(selectedAsset.purchaseDate)}</span>
                     <span className="text-muted-foreground">Warranty Expiry</span><span>{formatDate(selectedAsset.warrantyExpiry)}</span>
-                    <span className="text-muted-foreground">Location</span><span>{selectedAsset.location || "-"}</span>
                     <span className="text-muted-foreground">Assigned</span><span>{renderAssigned(selectedAsset)}</span>
                     <span className="text-muted-foreground">Created Date</span><span>{formatDate(selectedAsset.createdAt)}</span>
                   </div>
@@ -517,13 +714,9 @@ export function AssetManagerDashboard() {
                 <Select value={createCategory} onValueChange={setCreateCategory}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Laptop">Laptop</SelectItem>
-                    <SelectItem value="Desktop">Desktop</SelectItem>
-                    <SelectItem value="Monitor">Monitor</SelectItem>
-                    <SelectItem value="Printer">Printer</SelectItem>
-                    <SelectItem value="Network">Network</SelectItem>
-                    <SelectItem value="Peripheral">Peripheral</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    {STANDARD_HARDWARE_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -544,31 +737,16 @@ export function AssetManagerDashboard() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Model</Label>
-                <Input className="mt-1.5" placeholder="Latitude 5540" value={createModel} onChange={(e) => setCreateModel(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Model</Label>
+                  <Input className="mt-1.5" placeholder="Latitude 5540" value={createModel} onChange={(e) => setCreateModel(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Serial Number *</Label>
+                  <Input className="mt-1.5" placeholder="SN..." value={createSerial} onChange={(e) => setCreateSerial(e.target.value)} />
+                </div>
               </div>
-              <div>
-                <Label>Serial Number *</Label>
-                <Input className="mt-1.5" placeholder="SN..." value={createSerial} onChange={(e) => setCreateSerial(e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <Label>Location *</Label>
-              <Select value={createLocation} onValueChange={setCreateLocation}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bangalore">Bangalore</SelectItem>
-                  <SelectItem value="Mumbai">Mumbai</SelectItem>
-                  <SelectItem value="Delhi">Delhi</SelectItem>
-                  <SelectItem value="Hyderabad">Hyderabad</SelectItem>
-                  <SelectItem value="Chennai">Chennai</SelectItem>
-                  <SelectItem value="Pune">Pune</SelectItem>
-                  <SelectItem value="Kolkata">Kolkata</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button>
@@ -592,13 +770,9 @@ export function AssetManagerDashboard() {
                   <Select value={editTarget._editCategory} onValueChange={(v) => setEditTarget({ ...editTarget, _editCategory: v })}>
                     <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Laptop">Laptop</SelectItem>
-                      <SelectItem value="Desktop">Desktop</SelectItem>
-                      <SelectItem value="Monitor">Monitor</SelectItem>
-                      <SelectItem value="Printer">Printer</SelectItem>
-                      <SelectItem value="Network">Network</SelectItem>
-                      <SelectItem value="Peripheral">Peripheral</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
+                      {STANDARD_HARDWARE_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -624,21 +798,6 @@ export function AssetManagerDashboard() {
                 <div><Label>Serial Number</Label><Input className="mt-1.5" value={editTarget._editSerial} onChange={(e) => setEditTarget({ ...editTarget, _editSerial: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Location</Label>
-                  <Select value={editTarget._editLocation} onValueChange={(v) => setEditTarget({ ...editTarget, _editLocation: v })}>
-                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Bangalore">Bangalore</SelectItem>
-                      <SelectItem value="Mumbai">Mumbai</SelectItem>
-                      <SelectItem value="Delhi">Delhi</SelectItem>
-                      <SelectItem value="Hyderabad">Hyderabad</SelectItem>
-                      <SelectItem value="Chennai">Chennai</SelectItem>
-                      <SelectItem value="Pune">Pune</SelectItem>
-                      <SelectItem value="Kolkata">Kolkata</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div>
                   <Label>Status</Label>
                   <Select value={editTarget._editStatus} onValueChange={(v) => setEditTarget({ ...editTarget, _editStatus: v })}>
@@ -689,7 +848,7 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
     try {
       const formData = new FormData();
       formData.append("file", file);
-      await apiUpload("/asset-manager/import", formData);
+      await apiUpload("/asset-manager/bulk", formData);
       toast.success("Import successful");
       onDone();
     } catch (err: any) {
@@ -706,6 +865,12 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
         <div className="space-y-4 py-2">
           <Input type="file" accept=".xlsx,.xls,.csv,.pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           {file && <p className="text-sm text-muted-foreground">{file.name}</p>}
+          {!file && (
+            <Button variant="outline" className="w-full" onClick={handleDownloadSample}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Sample Excel
+            </Button>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>Cancel</Button>
@@ -719,10 +884,10 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 }
 
 function BulkDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (v: boolean) => void; onDone: () => void }) {
-  const [rows, setRows] = useState<any[]>([{ name: "", category: "", manufacturer: "", serial: "", location: "" }]);
+  const [rows, setRows] = useState<any[]>([{ name: "", category: "", manufacturer: "", serial: "" }]);
   const [saving, setSaving] = useState(false);
 
-  const addRow = () => setRows((prev) => [...prev, { name: "", category: "", manufacturer: "", serial: "", location: "" }]);
+  const addRow = () => setRows((prev) => [...prev, { name: "", category: "", manufacturer: "", serial: "" }]);
   const updateRow = (i: number, field: string, value: string) =>
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
   const removeRow = (i: number) => setRows((prev) => prev.filter((_, j) => j !== i));
@@ -732,25 +897,27 @@ function BulkDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
     if (valid.length === 0) { toast.error("Add at least one asset with name and serial"); return; }
     setSaving(true);
     try {
-      await apiFetch("/asset-manager/bulk", {
+      const payload = {
+        assets: valid.map((r) => ({
+          name: r.name,
+          category: r.category || "Other",
+          manufacturer: r.manufacturer || "Other",
+          serial: r.serial.toUpperCase(),
+          purchase_date: todayStr(),
+          warranty_expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
+          cost: Math.floor(Math.random() * 2500) + 500,
+          status: "Available",
+        })),
+      };
+      console.log("[AssetManagerDashboard] Bulk Request Payload:", JSON.stringify(payload, null, 2));
+      await apiFetch("/assets/bulk", {
         method: "POST",
-        body: JSON.stringify({
-          assets: valid.map((r) => ({
-            name: r.name,
-            category: r.category || "Other",
-            manufacturer: r.manufacturer || "Other",
-            serial: r.serial.toUpperCase(),
-            location: r.location || "Bangalore",
-            purchase_date: todayStr(),
-            warranty_expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
-            cost: Math.floor(Math.random() * 2500) + 500,
-            status: "Available",
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
       toast.success(`${valid.length} asset(s) added`);
       onDone();
     } catch (err: any) {
+      console.error("[AssetManagerDashboard] Bulk Add Error:", err);
       toast.error(err.message || "Bulk add failed");
     } finally {
       setSaving(false);
@@ -775,9 +942,17 @@ function BulkDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
               <div className="grid grid-cols-2 gap-2">
                 <Input placeholder="Name *" value={row.name} onChange={(e) => updateRow(i, "name", e.target.value)} />
                 <Input placeholder="Serial *" value={row.serial} onChange={(e) => updateRow(i, "serial", e.target.value)} />
-                <Input placeholder="Category" value={row.category} onChange={(e) => updateRow(i, "category", e.target.value)} />
+                <Select value={row.category} onValueChange={(value) => updateRow(i, "category", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STANDARD_HARDWARE_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input placeholder="Brand" value={row.manufacturer} onChange={(e) => updateRow(i, "manufacturer", e.target.value)} />
-                <Input placeholder="Location" value={row.location} onChange={(e) => updateRow(i, "location", e.target.value)} />
               </div>
             </div>
           ))}

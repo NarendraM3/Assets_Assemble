@@ -115,6 +115,42 @@ async def retire_asset(
     )
 
 
+@router.get("/onboarding/check-inventory/{employee_id}")
+async def check_onboarding_inventory(
+    employee_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
+):
+    from app.repositories.user import user_repository
+
+    user = await user_repository.get(employee_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    category = user.required_asset_category or "Laptop"
+    location = user.location or ""
+
+    filters = {"status": "Available", "category": category}
+    if location:
+        filters["location"] = location
+
+    items, total = await asset_repository.get_multi_paginated(
+        page=1, limit=10000, filters=filters
+    )
+
+    asset_schemas = [AssetResponse.model_validate(item) for item in items]
+
+    return ApiResponse(
+        success=True,
+        message="Inventory check completed",
+        data={
+            "available": len(asset_schemas) > 0,
+            "count": len(asset_schemas),
+            "assets": [s.model_dump() for s in asset_schemas],
+        }
+    )
+
+
 @router.post("/onboarding/verify/{employee_id}", response_model=ApiResponse[UserResponse])
 async def verify_onboarding_inventory(
     employee_id: str,

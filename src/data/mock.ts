@@ -9,7 +9,6 @@ export interface Employee {
   email: string;
   department: string;
   designation: string;
-  manager: string;
   location: string;
   status: "Active" | "Inactive" | "On Leave";
   avatar: string;
@@ -47,7 +46,6 @@ export interface Asset {
   assignedTo: string | null;
   purchaseDate: string;
   warrantyExpiry: string;
-  location: string;
   condition: string;
   vendor: string;
   createdAt: string;
@@ -129,11 +127,23 @@ export interface Maintenance {
   status: "Completed" | "In Progress" | "Scheduled";
 }
 
-export const DEPARTMENTS = ["HR", "Finance", "IT", "Operations", "Sales", "Marketing"];
-export const CATEGORIES = [
-  "Laptop", "Desktop", "Monitor", "Keyboard", "Mouse",
-  "Headset", "Printer", "Software License", "Mobile Phone",
+export const DEPARTMENTS = [
+  "Engineering",
+  "Human Resources",
+  "Finance",
+  "Information Technology",
+  "Sales",
+  "Marketing",
+  "Operations",
+  "Customer Support",
+  "Procurement",
+  "Legal",
+  "Administration",
+  "Executive Management",
 ];
+import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
+
+export const CATEGORIES = STANDARD_HARDWARE_CATEGORIES;
 export const MANUFACTURERS = ["Dell", "HP", "Lenovo", "Apple", "Samsung", "Logitech", "Microsoft"];
 export const LOCATIONS = ["HQ - New York", "Austin Office", "London Office", "Bangalore Office", "Remote", "Singapore Office"];
 export const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Email", "Peripheral", "Security"];
@@ -234,7 +244,6 @@ export const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
     email: `${first.toLowerCase()}.${last.toLowerCase()}@acmecorp.com`,
     department: pick(DEPARTMENTS),
     designation: pick(DESIGNATIONS),
-    manager: `${pick(FIRST)} ${pick(LAST)}`,
     location: pick(LOCATIONS),
     status: rand() > 0.9 ? (rand() > 0.5 ? "On Leave" : "Inactive") : "Active",
     avatar: `${first[0]}${last[0]}`,
@@ -268,7 +277,6 @@ export const assets: Asset[] = Array.from({ length: 1000 }, (_, i) => {
     assignedTo,
     purchaseDate: daysAgo(Math.floor(rand() * 1500) + 30),
     warrantyExpiry: daysFromNow(Math.floor(rand() * 800) - 200),
-    location: pick(LOCATIONS),
     condition: pick(["New", "Good", "Fair", "Poor"]),
     vendor: pick(["Dell Enterprise", "HP Inc", "Lenovo Group", "Apple Inc"]),
     createdAt: daysAgo(Math.floor(rand() * 365)),

@@ -8,7 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { useData } from "@/contexts/data";
 import { toast } from "sonner";
-import { CATEGORIES as FALLBACK_CATEGORIES, MANUFACTURERS as FALLBACK_MANUFACTURERS, LOCATIONS as FALLBACK_LOCATIONS } from "@/data/mock";
+import { MANUFACTURERS as FALLBACK_MANUFACTURERS } from "@/data/mock";
+import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 
 interface BulkAssetRow {
   name: string;
@@ -18,7 +19,6 @@ interface BulkAssetRow {
   serial: string;
   purchaseDate: string;
   warrantyExpiry: string;
-  location: string;
   status: string;
   assignedTo: string;
   remarks: string;
@@ -33,7 +33,6 @@ function emptyRow(): BulkAssetRow {
     serial: "",
     purchaseDate: "",
     warrantyExpiry: "",
-    location: "",
     status: "Available",
     assignedTo: "",
     remarks: "",
@@ -45,27 +44,24 @@ interface BulkAddModalProps {
   onOpenChange: (open: boolean) => void;
   categories: string[];
   manufacturers: string[];
-  locations: string[];
 }
 
 const STATUS_OPTIONS = ["Available", "Assigned", "Maintenance", "Retired"];
 
-export function BulkAddModal({ open, onOpenChange, categories, manufacturers, locations }: BulkAddModalProps) {
-  const { employees, addBulkAssets } = useData();
+export function BulkAddModal({ open, onOpenChange, categories, manufacturers }: BulkAddModalProps) {
+  const { employees, addBulkAssets, refreshData } = useData();
   const [rows, setRows] = useState<BulkAssetRow[]>(() =>
     Array.from({ length: 5 }, () => emptyRow())
   );
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  const safeCategories = categories.length > 0 ? categories : FALLBACK_CATEGORIES;
+  const safeCategories = STANDARD_HARDWARE_CATEGORIES;
   const safeManufacturers = manufacturers.length > 0 ? manufacturers : FALLBACK_MANUFACTURERS;
-  const safeLocations = locations.length > 0 ? locations : FALLBACK_LOCATIONS;
 
   console.log("[BulkAddModal] Options:", {
     categories: safeCategories,
     manufacturers: safeManufacturers,
-    locations: safeLocations,
     employeesCount: employees.length,
     rowsCount: rows.length,
   });
@@ -79,9 +75,10 @@ export function BulkAddModal({ open, onOpenChange, categories, manufacturers, lo
   const handleClose = useCallback(() => {
     if (!saving) {
       resetState();
+      refreshData();
       onOpenChange(false);
     }
-  }, [saving, resetState, onOpenChange]);
+  }, [saving, resetState, refreshData, onOpenChange]);
 
   const updateRow = (index: number, field: keyof BulkAssetRow, value: string) => {
     setRows((prev) => {
@@ -147,19 +144,31 @@ export function BulkAddModal({ open, onOpenChange, categories, manufacturers, lo
           serial: r.serial.trim().toUpperCase(),
           purchaseDate: r.purchaseDate || new Date().toISOString().slice(0, 10),
           warrantyExpiry: r.warrantyExpiry || new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
-          location: r.location,
           status: r.status as "Assigned" | "Available" | "Maintenance" | "Retired",
           assignedTo: r.assignedTo || null,
           cost: Math.floor(Math.random() * 2500) + 500,
           remarks: r.remarks || "",
         }));
 
+      const url = "/assets/bulk";
+      console.log("[BulkAddModal] Request URL:", url);
+      console.log("[BulkAddModal] Request Payload:", JSON.stringify({ assets: payload }, null, 2));
+
       const created = await addBulkAssets(payload);
+
+      console.log("[BulkAddModal] API Response:", created);
+
       const count = created.length ?? payload.length;
-      toast.success(`${count} Asset${count !== 1 ? "s" : ""} Added Successfully`);
+      toast.success(`${count} asset${count !== 1 ? "s" : ""} added successfully.`);
       resetState();
-      onOpenChange(false);
-    } catch {
+    } catch (err: any) {
+      console.error("[BulkAddModal] Error Response:", err);
+      console.error("[BulkAddModal] Error Message:", err.message);
+      console.error("[BulkAddModal] Error Status:", err?.status);
+      console.error("[BulkAddModal] Error Body:", err?.body);
+
+      const errorMsg = err?.body?.message || err?.body?.detail || err.message || "Failed to add assets";
+      setErrors([errorMsg]);
       setSaving(false);
     }
   };
@@ -267,17 +276,6 @@ export function BulkAddModal({ open, onOpenChange, categories, manufacturers, lo
                       value={row.warrantyExpiry}
                       onChange={(e) => updateRow(index, "warrantyExpiry", e.target.value)}
                     />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Location</Label>
-                    <Select value={row.location} onValueChange={(v) => updateRow(index, "location", v)}>
-                      <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        {safeLocations.map((l) => (
-                          <SelectItem key={l} value={l}>{l}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div>
                     <Label className="text-xs">Status</Label>

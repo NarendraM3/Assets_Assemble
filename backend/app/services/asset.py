@@ -178,7 +178,7 @@ class AssetService:
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
 
-        target_status = "Ready for Allocation" if approved else "Waiting for Inventory"
+        target_status = "Sent to IT Support Team" if approved else "Out of Stock"
         stamp = datetime.now().strftime("%b %d, %Y %I:%M %p")
         history = list(user.allocation_history or [])
 
@@ -190,14 +190,14 @@ class AssetService:
                 "remarks": f"Asset category {user.required_asset_category or 'Laptop'} verified and available in location.",
             })
             history.append({
-                "step": "Ready for Allocation",
+                "step": "Sent to IT Support Team",
                 "timestamp": stamp,
                 "actor": actor,
-                "remarks": remarks or "Approved for allocation queue.",
+                "remarks": remarks or "Sent to IT Support Team for allocation.",
             })
         else:
             history.append({
-                "step": "Waiting for Inventory",
+                "step": "Out of Stock",
                 "timestamp": stamp,
                 "actor": actor,
                 "remarks": remarks or f"Requested hardware ({user.required_asset_category or 'Laptop'}) is currently out of stock.",
@@ -205,7 +205,7 @@ class AssetService:
 
             await notification_repository.create({
                 "id": generate_id(),
-                "title": f"Procurement Alert: Allocation blocked for {user.name} ({remarks or 'Waiting for Inventory'})",
+                "title": f"Procurement Alert: Allocation blocked for {user.name} ({remarks or 'Out of Stock'})",
                 "type": "danger",
                 "time": "Just now",
                 "unread": True,
@@ -214,8 +214,12 @@ class AssetService:
                 "is_active": True,
             })
 
+        verification_status = "Verified" if approved else "Out of Stock"
+        allocation_status = "Sent to IT Support Team" if approved else "Out of Stock"
+
         await user_repository.update(user_id, {
-            "allocation_status": target_status,
+            "allocation_status": allocation_status,
+            "verification_status": verification_status,
             "allocation_history": history,
             "updated_at": utcnow_str(),
         })
@@ -233,7 +237,8 @@ class AssetService:
             "is_active": True,
         })
 
-        user.allocation_status = target_status
+        user.allocation_status = allocation_status
+        user.verification_status = verification_status
         user.allocation_history = history
         return user
 
@@ -279,6 +284,7 @@ class AssetService:
 
         await user_repository.update(user_id, {
             "allocation_status": "Completed",
+            "verification_status": "Completed",
             "allocation_history": history,
             "allocated_asset_details": allocated_details,
             "updated_at": utcnow_str(),
@@ -315,6 +321,14 @@ class AssetService:
         user.allocation_history = history
         user.allocated_asset_details = allocated_details
         return user
+
+
+    async def add_bulk_assets(self, assets_in: List[AssetCreate], actor: str):
+        created_assets = []
+        for asset_in in assets_in:
+            asset = await self.add_asset(asset_in, actor)
+            created_assets.append(asset)
+        return created_assets
 
 
 asset_service = AssetService()

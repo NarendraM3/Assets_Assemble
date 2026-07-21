@@ -15,8 +15,7 @@ import { uniqueValues } from "@/lib/live-data";
 export default function DepartmentsPage() {
   const { employees, assets, tickets } = useData();
   const departments = uniqueValues(employees.map((employee) => employee.department));
-  const departmentHead = (deptName: string) =>
-    employees.find((employee) => employee.department === deptName && employee.manager)?.manager || "Not assigned";
+  const departmentHead = (_deptName: string) => "Not assigned";
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [assetSearch, setAssetSearch] = useState("");
@@ -303,11 +302,7 @@ export default function DepartmentsPage() {
                               <span>Serial: <span className="font-mono">{asset.serialNumber}</span></span>
                             </div>
                           </div>
-                          <div className="text-right flex items-center gap-5">
-                            <div>
-                              <div className="text-sm font-bold text-foreground">-</div>
-                              <div className="text-[10px] text-muted-foreground">{(asset.location ?? "").split(" - ")[0]}</div>
-                            </div>
+                          <div className="flex items-center gap-5">
                             <StatusBadge status={asset.status} />
                           </div>
                         </div>

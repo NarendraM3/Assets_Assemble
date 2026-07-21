@@ -31,6 +31,10 @@ class AssetUpdate(BaseModel):
     status: Optional[str] = None
     cost: Optional[float] = None
 
+class BulkAssetCreate(BaseModel):
+    assets: list[AssetCreate]
+
+
 class AssetResponse(AssetBase):
     id: uuid.UUID
     display_id: str

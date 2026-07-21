@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     AUDIT_LOGS_TABLE: str = "audit_logs"
     NOTIFICATIONS_TABLE: str = "notifications"
     KNOWLEDGE_BASE_TABLE: str = "knowledge_base"
+    ASSET_ASSIGNMENTS_TABLE: str = "Asset_Assignments"
 
     CORS_ORIGINS: str = "*"
 

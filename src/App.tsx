@@ -37,7 +37,6 @@ import Roles from "./pages/Roles";
 import Vendors from "./pages/Vendors";
 import Warranty from "./pages/Warranty";
 import ApprovedRequestQueue from "./pages/ApprovedRequestQueue";
-import AllocationOnboarding from "./pages/AllocationOnboarding";
 import OnboardingVerification from "./pages/OnboardingVerification";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import { AdminDashboard } from "@/features/dashboards/AdminDashboard";
@@ -183,7 +182,6 @@ export function App() {
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/warranty" element={<Warranty />} />
             <Route path="/approved-request-queue" element={<ApprovedRequestQueue />} />
-            <Route path="/allocation-onboarding" element={<AllocationOnboarding />} />
             <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
             <Route path="/onboarding-verification" element={<OnboardingVerification />} />
           </Route>

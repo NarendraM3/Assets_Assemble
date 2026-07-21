@@ -88,8 +88,14 @@ export default function RaiseTicket() {
       const employeeId = storedRaw?.EmployeeId || storedRaw?.display_id || user?.display_id || user?.id || "";
       const department = storedRaw?.department || "";
 
-      if (!v.title || !v.description || !v.category || !department) {
-        toast.error("All required fields must be filled");
+      console.log("[RaiseTicket] Form watch:", watch());
+      console.log("[RaiseTicket] Zod-validated data:", v);
+      console.log("[RaiseTicket] employeeId:", employeeId, "department:", department);
+
+      // Zod resolver already validates title (min 5), description (min 15), category (min 1).
+      // Only employeeId is truly required here since department can fall back to "Unassigned".
+      if (!employeeId) {
+        toast.error("Employee information not found. Please try logging in again.");
         return;
       }
 
@@ -98,13 +104,16 @@ export default function RaiseTicket() {
         description: v.description,
         priority: "Medium" as const,
         category: v.category,
-        department,
+        department: department || "Unassigned",
         employeeId,
         created_by_id: employeeId,
         assetId: v.assetId || null,
         createdBy: user?.name || "Employee User",
         attachments,
       };
+
+      console.log("[RaiseTicket] Outgoing payload:", JSON.stringify(payload, null, 2));
+
       const ticket = await createTicket(payload, user?.name || "Employee User");
 
       console.log("Ticket Response:", ticket);
@@ -156,6 +165,8 @@ export default function RaiseTicket() {
         }
       }
 
+      console.log("[RaiseTicket] Final attachments state before nav:", attachments);
+      console.log("[RaiseTicket] selectedFiles before nav:", selectedFiles);
       toast.success("Ticket submitted - we'll get back to you shortly", {
         description: `Category: ${v.category}`,
       });

@@ -12,7 +12,6 @@ export interface Employee {
   role?: Role;
   department: string;
   designation: string;
-  manager: string;
   location: string;
   status: "Active" | "Inactive" | "On Leave";
   avatar: string;
@@ -21,10 +20,20 @@ export interface Employee {
   allocationDate?: string;
   allocationTime?: string;
   allocationStatus?:
+    | "Pending"
     | "Awaiting Asset Verification"
     | "Waiting for Inventory"
     | "Ready for Allocation"
+    | "Assigned to IT Support"
+    | "Asset Allocated"
+    | "Sent to IT Support Team"
+    | "Inventory Verified"
+    | "IT Asset Assignment In Progress"
+    | "Assets Allocated"
+    | "Ready for Delivery"
+    | "Out of Stock"
     | "Completed";
+  verificationStatus?: "Pending" | "Verified" | "Out of Stock" | "Completed";
   requiredAssetCategory?: string;
   allocatedAssetDetails?: {
     assetId: string;
@@ -67,7 +76,6 @@ export interface Asset {
   assignedTo: string | null;
   purchaseDate: string;
   warrantyExpiry: string;
-  location: string;
   condition: string;
   vendor: string;
   createdAt: string;
@@ -80,6 +88,7 @@ export interface Asset {
 export interface Ticket {
   id: string;
   uuid?: string;
+  TicketId?: string;
   title: string;
   description: string;
   priority: "Low" | "Medium" | "High" | "Critical";
@@ -100,7 +109,9 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   sla: "On Track" | "At Risk" | "Breached";
+  attachmentUrl?: string | null;
   attachments?: string[];
+  attachmentId?: string | null;
   comments: { author: string; message: string; at: string }[];
   supportResolution?: string;
   adminRemarks?: string;
@@ -109,6 +120,7 @@ export interface Ticket {
   assetRemarks?: string;
   assetResolution?: string;
   assignedRole?: Role;
+  EstimatedResolutionTime?: string;
   timeline?: {
     step: string;
     timestamp: string;
@@ -129,13 +141,37 @@ export interface Ticket {
 
 export interface Assignment {
   id: string;
-  uuid: string;
+  uuid?: string;
+  assignmentId?: string;
   assetId: string;
   employeeId: string;
+  employeeName?: string;
+  assetName?: string;
+  assetTag?: string;
+  department?: string;
+  assignedBy?: string;
+  assignedRole?: string;
   assignedDate: string;
-  returnDate: string | null;
-  expectedReturn: string | null;
-  status: "Active" | "Returned" | "Transferred";
+  returnDate?: string | null;
+  expectedReturn?: string | null;
+  status: "Assigned" | "Active" | "Returned" | "Transferred";
+  comments?: string;
+  rejectReason?: string;
+}
+
+export interface AssetAssignmentRecord {
+  AssignmentId: string;
+  EmployeeId: string;
+  EmployeeName: string;
+  AssetId: string;
+  AssetTag: string;
+  AssetName: string;
+  Department: string;
+  AssignedBy: string;
+  AssignedRole: string;
+  AssignedDate: string;
+  Status: string;
+  Comments: string;
 }
 
 export interface Vendor {

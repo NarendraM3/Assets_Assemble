@@ -4,7 +4,7 @@ from app.models.user import User
 from app.services.asset import asset_service
 from app.repositories.asset import asset_repository
 from app.schemas.base import ApiResponse, PaginatedData
-from app.schemas.asset import AssetResponse, AssetCreate, AssetUpdate
+from app.schemas.asset import AssetResponse, AssetCreate, AssetUpdate, BulkAssetCreate
 from app.schemas.user import UserResponse
 from typing import Optional, Dict, Any
 
@@ -86,6 +86,21 @@ async def create_asset(
     )
 
 
+@router.post("/bulk", response_model=ApiResponse[list[AssetResponse]])
+async def create_assets_bulk(
+    bulk_in: BulkAssetCreate,
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
+):
+    assets = await asset_service.add_bulk_assets(bulk_in.assets, current_user.name)
+    schemas = [AssetResponse.model_validate(a) for a in assets]
+    return ApiResponse(
+        success=True,
+        message=f"{len(schemas)} assets created successfully",
+        data=schemas,
+    )
+
+
 @router.patch("/{asset_id}", response_model=ApiResponse[AssetResponse])
 async def update_asset(
     asset_id: str,
@@ -112,6 +127,42 @@ async def retire_asset(
         success=True,
         message="Asset marked as retired",
         data=AssetResponse.model_validate(asset),
+    )
+
+
+@router.get("/onboarding/check-inventory/{employee_id}")
+async def check_onboarding_inventory(
+    employee_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
+):
+    from app.repositories.user import user_repository
+
+    user = await user_repository.get(employee_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    category = user.required_asset_category or "Laptop"
+    location = user.location or ""
+
+    filters = {"status": "Available", "category": category}
+    if location:
+        filters["location"] = location
+
+    items, total = await asset_repository.get_multi_paginated(
+        page=1, limit=10000, filters=filters
+    )
+
+    asset_schemas = [AssetResponse.model_validate(item) for item in items]
+
+    return ApiResponse(
+        success=True,
+        message="Inventory check completed",
+        data={
+            "available": len(asset_schemas) > 0,
+            "count": len(asset_schemas),
+            "assets": [s.model_dump() for s in asset_schemas],
+        }
     )
 
 

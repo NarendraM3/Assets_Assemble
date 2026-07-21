@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type {
-  Employee, Asset, Assignment, Ticket, Role, Vendor, Maintenance
+  Employee, Asset, Assignment, Ticket, Role, Vendor, Maintenance,
+  AssetAssignmentRecord
 } from "@/types/domain";
 import {
   fetchTickets as apiFetchTickets,
@@ -16,7 +17,7 @@ import {
   type RegistrationResult,
 } from "@/services/data";
 import { useAuth } from "@/contexts/auth";
-import { apiFetch, apiUpload, getToken } from "@/services/api";
+import { apiFetch, apiUpload, getToken, BASE_URL } from "@/services/api";
 import { toast } from "sonner";
 import { assetStats, normalizeAssetStatus } from "@/lib/assets";
 
@@ -49,10 +50,17 @@ interface DataCtx {
   addBulkAssets: (assets: Record<string, any>[]) => Promise<Asset[]>;
   retireAsset: (id: string) => Promise<void>;
   setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
-  verifyOnboardingAsset: (employeeId: string, approved: boolean, remarks: string, actor: string) => Promise<void>;
+  setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
+  verifyOnboardingAsset: (employeeId: string, verificationStatus: string, selectedAsset: any, remarks: string) => Promise<any>;
+  outOfStockOnboarding: (employeeId: string, remarks: string) => Promise<any>;
   completeOnboardingAllocation: (employeeId: string, assetId: string, remarks: string, actor: string) => Promise<void>;
+  markOnboardingComplete: (employeeId: string, remarks: string, actor: string) => Promise<void>;
+  addOnboardingNote: (employeeId: string, notes: string, actor: string) => Promise<void>;
   fetchFullProfile: (userUuid: string) => Promise<any>;
   fetchRecentEmployees: () => Promise<any[]>;
+  assignmentRecords: AssetAssignmentRecord[];
+  createAssignmentRecord: (record: Omit<AssetAssignmentRecord, "AssignmentId" | "AssignedDate" | "AssignedRole" | "Status">) => Promise<AssetAssignmentRecord>;
+  fetchAssignmentRecords: () => Promise<void>;
 }
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -61,11 +69,35 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function normalizeAsset(item: any): Asset {
+  return {
+    assetId: item.AssetId || item.assetId || "",
+    assetName: item.AssetName || item.assetName || item.name || "",
+    assetTag: item.AssetTag || item.assetTag || "",
+    brand: item.Brand || item.brand || item.manufacturer || "",
+    category: item.Category || item.category || "",
+    model: item.Model || item.model || "",
+    serialNumber: item.SerialNumber || item.serialNumber || item.serial || "",
+    status: normalizeAssetStatus(item.Status || item.status),
+    assignedTo: item.AssignedTo || item.assignedTo || null,
+    purchaseDate: item.PurchaseDate || item.purchaseDate || "",
+    warrantyExpiry: item.WarrantyExpiry || item.warrantyExpiry || "",
+    condition: item.Condition || item.condition || "",
+    vendor: item.Vendor || item.vendor || "",
+    createdAt: item.CreatedAt || item.createdAt || "",
+    updatedAt: item.UpdatedAt || item.updatedAt || "",
+    createdBy: item.CreatedBy || item.createdBy || "",
+    assignedAt: item.AssignedAt || item.assignedAt || "",
+    hardwareRequired: item.HardwareRequired || item.hardwareRequired || "",
+  };
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assignments] = useState<Assignment[]>([]);
+  const [assignmentRecords, setAssignmentRecords] = useState<AssetAssignmentRecord[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [auditLogs] = useState<any[]>([]);
   const [notifications] = useState<any[]>([]);
@@ -115,37 +147,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.log(`[DataProvider] Successfully fetched ${ticketResult?.tickets?.length ?? 0} tickets`);
       } catch (err: any) {
         console.error("[DataProvider] Failed to fetch tickets:", err.message);
-        errors.push(`Tickets: ${err.message}`);
+        console.error("[DataProvider] Tickets API error details:", err);
       }
 
       try {
         console.log("[DataProvider] Fetching assets...");
         const assetsData = await apiFetch<any>("/asset-manager");
         console.log("Assets API Response", assetsData);
-        const rawItems = Array.isArray(assetsData)
-          ? assetsData
-          : assetsData?.data ?? [];
-        apiAssets = rawItems.map((item: any) => ({
-          assetId: item.AssetId || item.assetId || "",
-          assetName: item.AssetName || item.assetName || item.name || "",
-          assetTag: item.AssetTag || item.assetTag || "",
-          brand: item.Brand || item.brand || item.manufacturer || "",
-          category: item.Category || item.category || "",
-          model: item.Model || item.model || "",
-          serialNumber: item.SerialNumber || item.serialNumber || item.serial || "",
-          status: normalizeAssetStatus(item.Status || item.status),
-          assignedTo: item.AssignedTo || item.assignedTo || null,
-          purchaseDate: item.PurchaseDate || item.purchaseDate || "",
-          warrantyExpiry: item.WarrantyExpiry || item.warrantyExpiry || "",
-          location: item.Location || item.location || "",
-          condition: item.Condition || item.condition || "",
-          vendor: item.Vendor || item.vendor || "",
-          createdAt: item.CreatedAt || item.createdAt || "",
-          updatedAt: item.UpdatedAt || item.updatedAt || "",
-          createdBy: item.CreatedBy || item.createdBy || "",
-          assignedAt: item.AssignedAt || item.assignedAt || "",
-          hardwareRequired: item.HardwareRequired || item.hardwareRequired || "",
-        }));
+        let rawItems: any[] = [];
+        if (Array.isArray(assetsData)) {
+          rawItems = assetsData;
+        } else if (assetsData?.assets && Array.isArray(assetsData.assets)) {
+          rawItems = assetsData.assets;
+        } else if (assetsData?.data?.assets && Array.isArray(assetsData.data.assets)) {
+          rawItems = assetsData.data.assets;
+        } else if (assetsData?.data && Array.isArray(assetsData.data)) {
+          rawItems = assetsData.data;
+        }
+        apiAssets = rawItems.map(normalizeAsset);
         setAssets(apiAssets);
         console.log(`[DataProvider] Successfully fetched ${apiAssets.length} assets`);
       } catch (err: any) {
@@ -157,6 +176,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const finalAssets = apiAssets ?? [];
       setEmployees(finalEmployees);
       setTickets(ticketResult?.tickets ?? []);
+      console.log(`[DataProvider] State updated — tickets now: ${ticketResult?.tickets?.length ?? 0}`);
 
       if (errors.length > 0) {
         const message = `Some data could not be loaded: ${errors.join("; ")}`;
@@ -184,8 +204,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           resolved: (ticketResult?.tickets ?? []).filter(t => t.status === "Resolved").length,
           closed: (ticketResult?.tickets ?? []).filter(t => t.status === "Closed").length,
         },
-        pendingOnboarding: finalEmployees.filter(e => e.allocationStatus === "Pending" || !e.allocationStatus).length,
-        readyForAllocation: finalEmployees.filter(e => e.allocationStatus === "Ready for Allocation").length,
+        pendingOnboarding: finalEmployees.filter(e => !e.allocationStatus || e.allocationStatus === "Awaiting Asset Verification").length,
+        readyForAllocation: finalEmployees.filter(e => e.allocationStatus === "Sent to IT Support Team" || e.allocationStatus === "Ready for Allocation").length,
         completedOnboarding: finalEmployees.filter(e => e.allocationStatus === "Completed").length,
         employeesByDepartment: finalEmployees.reduce((acc: Record<string, number>, e) => {
           const dept = e.department || "Unassigned";
@@ -203,20 +223,79 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.role]);
 
-  useEffect(() => {
-    loadAllData();
-    const interval = setInterval(() => {
-      loadAllData();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [loadAllData]);
+  const fetchAssignmentRecords = useCallback(async () => {
+    try {
+      console.log("[IT Support] GET Assignments");
+      const data = await apiFetch<any>("/it-support/assignments");
+      console.log("Assignments API Response:", data);
+      const raw = Array.isArray(data) ? data : data?.assignments ?? data?.data ?? [];
+      console.log("Assignments Count:", raw?.length);
+      const mapped: any[] = raw.map((item: any) => ({
+        AssignmentId: item.AssignmentId ?? item.assignmentId ?? item.id ?? "",
+        EmployeeId: item.EmployeeId ?? item.employeeId ?? "",
+        EmployeeName: item.EmployeeName ?? item.employeeName ?? "",
+        AssetId: item.AssetId ?? item.assetId ?? "",
+        AssetTag: item.AssetTag ?? item.assetTag ?? "",
+        AssetName: item.AssetName ?? item.assetName ?? "",
+        Category: item.Category ?? item.category ?? "",
+        Department: item.Department ?? item.department ?? "",
+        AssignedBy: item.AssignedBy ?? item.assignedBy ?? "",
+        AssignedRole: item.AssignedRole ?? item.assignedRole ?? "",
+        AssignedDate: item.AssignedDate ?? item.assignedDate ?? "",
+        Status: item.Status ?? item.status ?? "",
+        AssignmentStatus: item.AssignmentStatus ?? item.assignmentStatus ?? "",
+        Workflow: item.Workflow ?? item.workflow ?? "",
+        ITComment: item.ITComment ?? item.itComment ?? item.Comments ?? item.comments ?? "",
+        Comments: item.Comments ?? item.comments ?? "",
+      }));
+      setAssignmentRecords(mapped);
+    } catch (err: any) {
+      console.warn("[DataProvider] Failed to fetch assignment records:", err.message);
+    }
+  }, []);
+
+  const createAssignmentRecord = useCallback(async (record: Omit<AssetAssignmentRecord, "AssignmentId" | "AssignedDate" | "AssignedRole" | "Status">) => {
+    const payload = {
+      EmployeeId: record.EmployeeId,
+      EmployeeName: record.EmployeeName,
+      AssetId: record.AssetId,
+      AssetTag: record.AssetTag,
+      AssetName: record.AssetName,
+      Department: record.Department,
+      AssignedBy: record.AssignedBy,
+      AssignedRole: "IT Support Team",
+      Status: "Assigned",
+      Comments: record.Comments,
+    };
+    console.log("[Assignment Create] Payload:", payload);
+    console.log("[Assignment Create] API:", "/asset-assignments");
+    const result = await apiFetch<AssetAssignmentRecord>("/asset-assignments", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (result) {
+      setAssignmentRecords((prev) => [result, ...prev]);
+      fetchAssignmentRecords();
+    }
+    return result;
+  }, []);
 
   const refreshData = useCallback(async () => {
     await loadAllData();
-  }, [loadAllData]);
+    await fetchAssignmentRecords();
+  }, [loadAllData, fetchAssignmentRecords]);
+
+  useEffect(() => {
+    refreshData();
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
   const createTicketFn = async (ticketData: any, actor: string) => {
     try {
+      console.log("[DataProvider] createTicket called with:", ticketData);
       const newTicket = await apiCreateTicket({
         title: ticketData.title,
         description: ticketData.description,
@@ -226,8 +305,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         employeeId: ticketData.employeeId,
         created_by_id: ticketData.created_by_id,
         asset_id: ticketData.assetId || null,
-        attachments: ticketData.attachments || [],
+        attachments: Array.isArray(ticketData.attachments) ? ticketData.attachments : [],
       });
+      console.log("[DataProvider] createTicket response:", newTicket);
       await refreshData();
       return newTicket;
     } catch (err: any) {
@@ -325,11 +405,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       role: empData.role,
       department: empData.department,
       designation: empData.designation,
-      manager: empData.manager,
-      location: empData.location,
-      status: "Active",
-      phone: empData.phone,
-      joinDate: todayStr(),
+      joinDate: empData.joiningDate || todayStr(),
       allocationDate: empData.allocationDate,
       allocationTime: empData.allocationTime,
       requiredAssetCategory: empData.requiredAssetCategory,
@@ -384,7 +460,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (assetData.manufacturer) payload.Manufacturer = assetData.manufacturer;
       if (assetData.model) payload.Model = assetData.model;
       if (assetData.serial) payload.SerialNumber = assetData.serial;
-      if (assetData.location) payload.Location = assetData.location;
       if (assetData.purchaseDate) payload.PurchaseDate = assetData.purchaseDate;
       if (assetData.warrantyExpiry) payload.WarrantyExpiry = assetData.warrantyExpiry;
       if (assetData.cost !== undefined) payload.Cost = Number(assetData.cost);
@@ -398,10 +473,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      const newAsset = Array.isArray(result) ? result[0] : result;
+      const rawAsset = Array.isArray(result) ? result[0] : result;
+      const newAsset = normalizeAsset(rawAsset);
       setAssets((prev) => [...prev, newAsset]);
-      toast.success("Inventory updated successfully");
-      await refreshData();
       return newAsset;
     } catch (err: any) {
       toast.error(err.message || "Failed to create asset");
@@ -411,19 +485,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addBulkAssets = async (assetsData: any[]): Promise<Asset[]> => {
     try {
-      const result = await apiFetch<any>("/asset-manager/bulk", {
+      const payload = {
+        assets: assetsData.map((a) => ({
+          name: a.name,
+          category: a.category,
+          manufacturer: a.manufacturer,
+          model: a.model,
+          serial: a.serial,
+          purchase_date: a.purchaseDate,
+          warranty_expiry: a.warrantyExpiry,
+          status: a.status,
+          cost: a.cost,
+          assigned_to_id: a.assignedTo || null,
+        })),
+      };
+
+      console.log("[addBulkAssets] Request URL:", "/assets/bulk");
+      console.log("[addBulkAssets] Request Payload:", JSON.stringify(payload, null, 2));
+
+      const result = await apiFetch<any>("/assets/bulk", {
         method: "POST",
-        body: JSON.stringify({ assets: assetsData }),
+        body: JSON.stringify(payload),
       });
-      const newAssets = Array.isArray(result) ? result : (result?.data ?? []);
+
+      console.log("[addBulkAssets] API Response:", result);
+
+      const rawAssets = Array.isArray(result) ? result : (result?.data ?? []);
+      console.log("[addBulkAssets] Parsed new assets:", rawAssets);
+
+      const newAssets = rawAssets.map(normalizeAsset);
       if (newAssets.length > 0) {
         setAssets((prev) => [...prev, ...newAssets]);
       }
-      toast.success(`Inventory updated successfully (${newAssets.length} assets added)`);
-      await refreshData();
       return newAssets;
     } catch (err: any) {
-      toast.error(err.message || "Failed to create assets");
+      console.error("[addBulkAssets] Error Response:", err);
+      console.error("[addBulkAssets] Error Message:", err.message);
+      console.error("[addBulkAssets] Error Status:", err.status);
+      console.error("[addBulkAssets] Error Body:", err.body);
       throw err;
     }
   };
@@ -442,31 +541,92 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const verifyOnboardingAsset = async (employeeId: string, approved: boolean, remarks: string, actor: string) => {
+  const verifyOnboardingAsset = async (
+    employeeId: string,
+    verificationStatus: string,
+    selectedAsset: any,
+    remarks: string
+  ) => {
     try {
-      const payload = { employeeId, approved, remarks, actor };
-      await apiFetch("/asset-manager/onboarding/verify", {
+      const assetId = selectedAsset?.AssetId || selectedAsset?.assetId;
+
+      const payload = {
+        verificationStatus,
+        selectedAsset: {
+          AssetId: assetId
+        },
+        remarks: remarks || ""
+      };
+
+      const url = `${BASE_URL}/asset-manager/onboarding/${employeeId}/verify`;
+      console.log("VERIFY URL", url);
+      console.log("VERIFY PAYLOAD", payload);
+
+      const response = await apiFetch<any>(`/asset-manager/onboarding/${employeeId}/verify`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+
       setEmployees((prev) =>
         prev.map((e) =>
           e.id === employeeId
             ? {
                 ...e,
-                allocationStatus: approved ? "Ready for Allocation" as const : "Waiting for Inventory" as const,
+                verificationStatus: "Verified",
+                allocationStatus: "Sent to IT Support Team" as const,
               }
             : e
         )
       );
-      if (approved) {
-        toast.success("Employee onboarding approved successfully");
-      } else {
-        toast.success("Employee onboarding rejected");
-      }
+
+      toast.success(response?.message || "Verification completed — sent to IT Support Team");
       await refreshData();
+      return response;
     } catch (err: any) {
-      toast.error(err.message || "Failed to update onboarding request");
+      const errorMsg = err?.body?.data?.error || err?.body?.error || err.message || "Failed to update onboarding request";
+      toast.error(errorMsg);
+      throw err;
+    }
+  };
+
+  const outOfStockOnboarding = async (
+    employeeId: string,
+    remarks: string
+  ) => {
+    try {
+      const payload = {
+        verificationStatus: "Out of Stock",
+        selectedAsset: null,
+        remarks: remarks || ""
+      };
+
+      const url = `${BASE_URL}/asset-manager/onboarding/${employeeId}/verify`;
+      console.log("OUT OF STOCK URL", url);
+      console.log("OUT OF STOCK PAYLOAD", payload);
+
+      const response = await apiFetch<any>(`/asset-manager/onboarding/${employeeId}/verify`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.id === employeeId
+            ? {
+                ...e,
+                verificationStatus: "Out of Stock",
+                allocationStatus: "Out of Stock" as const,
+              }
+            : e
+        )
+      );
+
+      toast.success(response?.message || "Onboarding flagged as out of stock");
+      await refreshData();
+      return response;
+    } catch (err: any) {
+      const errorMsg = err?.body?.data?.error || err?.body?.error || err.message || "Failed to update onboarding request";
+      toast.error(errorMsg);
       throw err;
     }
   };
@@ -487,7 +647,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEmployees((prev) =>
         prev.map((e) =>
           e.id === employeeId
-            ? { ...e, allocationStatus: "Completed" as const }
+            ? { ...e, allocationStatus: "Completed" as const, verificationStatus: "Verified" as const }
             : e
         )
       );
@@ -505,12 +665,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEmployees((prev) =>
         prev.map((e) =>
           e.id === employeeId
-            ? { ...e, allocationStatus: "Completed" as const }
+            ? { ...e, allocationStatus: "Completed" as const, verificationStatus: "Verified" as const }
             : e
         )
       );
       toast.success("Asset delivered successfully");
       await refreshData();
+    }
+  };
+
+  const markOnboardingComplete = async (employeeId: string, remarks: string, actor: string) => {
+    try {
+      await apiFetch("/support/onboarding/" + employeeId + "/complete", {
+        method: "POST",
+        body: JSON.stringify({ remarks, actor }),
+      });
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.id === employeeId
+            ? { ...e, allocationStatus: "Completed" as const, verificationStatus: "Verified" as const }
+            : e
+        )
+      );
+      toast.success("Onboarding marked as completed");
+      await refreshData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to mark onboarding complete");
+      throw err;
+    }
+  };
+
+  const addOnboardingNote = async (employeeId: string, notes: string, actor: string) => {
+    try {
+      await apiFetch("/support/onboarding/" + employeeId + "/notes", {
+        method: "POST",
+        body: JSON.stringify({ remarks: notes, actor }),
+      });
+      toast.success("Note added successfully");
+      await refreshData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add note");
+      throw err;
     }
   };
 
@@ -553,10 +748,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addBulkAssets,
       retireAsset,
       setAssets,
+      setTickets,
       verifyOnboardingAsset,
+      outOfStockOnboarding,
       completeOnboardingAllocation,
+      markOnboardingComplete,
+      addOnboardingNote,
       fetchFullProfile,
-      fetchRecentEmployees
+      fetchRecentEmployees,
+      assignmentRecords,
+      createAssignmentRecord,
+      fetchAssignmentRecords,
     }}>
       {children}
     </Ctx.Provider>

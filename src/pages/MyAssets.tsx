@@ -87,7 +87,6 @@ export default function MyAssets() {
                 <span className="text-muted-foreground">Category</span><span className="font-medium">{a.category}</span>
                 <span className="text-muted-foreground">Manufacturer</span><span className="font-medium">{a.brand}</span>
                 <span className="text-muted-foreground">Model</span><span className="font-medium">{a.model}</span>
-                <span className="text-muted-foreground">Location</span><span className="font-medium">{a.location}</span>
                 <span className="text-muted-foreground">Assigned</span><span className="font-medium">{a.assignedAt || "-"}</span>
                 <span className="text-muted-foreground">Warranty</span><span className="font-medium">{a.warrantyExpiry}</span>
               </div>
@@ -158,11 +157,6 @@ export default function MyAssets() {
                 <div className="border-t pt-3 border-dashed">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Warranty Expiry</span>
                   <span className="font-medium text-foreground block mt-1">{selectedAsset.warrantyExpiry || "Jul 08, 2027"}</span>
-                </div>
-
-                <div className="border-t pt-3 border-dashed">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Compass className="h-3.5 w-3.5" /> Office Location</span>
-                  <span className="font-medium text-foreground block mt-1">{selectedAsset.location}</span>
                 </div>
 
                 <div className="border-t pt-3 border-dashed">

@@ -2,7 +2,7 @@ import { toast } from "sonner";
 
 export const BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:8000/api";
+  "http://localhost:8000";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -91,10 +91,12 @@ export async function apiFetch<T>(
     if (res.status === 401) {
       handleUnauthorized();
       toast.error("Session expired. Please login again.");
+    } else if (res.status === 403) {
+      toast.error("You do not have permission to perform this action.");
     } else if (res.status === 404) {
-      toast.error(errorMsg);
+      toast.error("The requested resource was not found.");
     } else if (res.status >= 500) {
-      toast.error(errorMsg);
+      toast.error("Something went wrong on the server. Please try again.");
     }
 
     const err = new Error(errorMsg);
@@ -145,10 +147,12 @@ export async function apiUpload<T>(
     if (res.status === 401) {
       handleUnauthorized();
       toast.error("Session expired. Please login again.");
+    } else if (res.status === 403) {
+      toast.error("You do not have permission to perform this action.");
     } else if (res.status === 404) {
-      toast.error(errorMsg);
+      toast.error("The requested resource was not found.");
     } else if (res.status >= 500) {
-      toast.error(errorMsg);
+      toast.error("Something went wrong on the server. Please try again.");
     }
 
     throw new Error(errorMsg);

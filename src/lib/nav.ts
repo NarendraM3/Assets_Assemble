@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Ticket as TicketIcon, User, Users,
   Building2, Tags, Settings as SettingsIcon, FileBarChart,
   ClipboardList, Wrench, ShoppingBag, BookOpen, PlusCircle, ScrollText, Calendar,
-  Bell, ListTodo,
+  ListTodo,
 } from "lucide-react";
 
 export interface NavItem {
@@ -72,21 +72,20 @@ export const NAV: Record<Role, NavGroup[]> = {
     },
     {
       label: "Tickets", items: [
-        { to: "/all-tickets", label: "Ticket Queue", icon: ListTodo },
-        { to: "/assigned-tickets", label: "Assigned Tickets", icon: ClipboardList },
+        { to: "/all-tickets", label: "Tickets", icon: ListTodo },
       ]
     },
     {
-      label: "Assets", items: [
-        { to: "/assets", label: "Asset Inventory", icon: Package },
-        { to: "/assignments", label: "Asset Assignments", icon: ClipboardList },
+      label: "Inventory", items: [
+        { to: "/assets", label: "Assets", icon: Package },
+        { to: "/assignments", label: "Assignments", icon: ClipboardList },
+        { to: "/warranty", label: "Warranty", icon: Calendar },
         { to: "/maintenance", label: "Maintenance", icon: Wrench },
       ]
     },
     {
-      label: "Account", items: [
-        { to: "/notifications", label: "Notifications", icon: Bell },
-        { to: "/profile", label: "My Profile", icon: User },
+      label: "Partners", items: [
+        { to: "/vendors", label: "Vendors", icon: ShoppingBag },
       ]
     },
   ],

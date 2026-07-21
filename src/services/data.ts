@@ -16,7 +16,6 @@ interface BackendUser {
   role?: string;
   department?: string | null;
   designation?: string | null;
-  manager?: string | null;
   location?: string | null;
   status?: string;
   avatar?: string | null;
@@ -25,6 +24,7 @@ interface BackendUser {
   allocation_date?: string | null;
   allocation_time?: string | null;
   allocation_status?: Employee["allocationStatus"] | null;
+  verification_status?: string | null;
   required_asset_category?: string | null;
   allocated_asset_details?: any;
   allocation_history?: any[];
@@ -51,7 +51,6 @@ export function normalizeUser(raw: any): BackendUser {
       role: raw.Role ?? raw.role,
       department: raw.Department ?? raw.department,
       designation: raw.designation ?? raw.Designation,
-      manager: raw.manager ?? raw.Manager,
       location: raw.Location ?? raw.location,
       status: raw.Status ?? raw.status,
       avatar: raw.avatar,
@@ -60,6 +59,7 @@ export function normalizeUser(raw: any): BackendUser {
       allocation_date: raw.allocation_date ?? raw.AllocationDate,
       allocation_time: raw.allocation_time ?? raw.AllocationTime,
       allocation_status: raw.allocation_status,
+      verification_status: raw.verification_status,
       required_asset_category: raw.required_asset_category ?? raw.RequiredHardwareCategory,
       allocated_asset_details: raw.allocated_asset_details,
       allocation_history: raw.allocation_history,
@@ -77,7 +77,6 @@ export function mapEmployee(user: BackendUser): Employee {
     role: (user.role as Employee["role"]) ?? "employee",
     department: user.department ?? "",
     designation: user.designation ?? "",
-    manager: user.manager ?? "",
     location: user.location ?? "",
     status: (user.status as Employee["status"]) ?? "Active",
     avatar: user.avatar ?? initials(user.name),
@@ -86,6 +85,7 @@ export function mapEmployee(user: BackendUser): Employee {
     allocationDate: user.allocation_date ?? undefined,
     allocationTime: user.allocation_time ?? undefined,
     allocationStatus: user.allocation_status ?? undefined,
+    verificationStatus: (user.verification_status ?? "Pending") as Employee["verificationStatus"],
     requiredAssetCategory: user.required_asset_category ?? undefined,
     allocatedAssetDetails: user.allocated_asset_details,
     allocationHistory: user.allocation_history,
@@ -199,24 +199,22 @@ export async function createEmployee(payload: any): Promise<RegistrationResult> 
   const firstName = parts[0] || "";
   const lastName = parts.slice(1).join(" ") || "-";
 
-  const body = {
+  const body: Record<string, any> = {
     FirstName: firstName,
     LastName: lastName,
     Email: payload.email,
     Role: payload.role,
-    Department: payload.department,
-    Location: payload.location,
-    Designation: payload.designation,
-    Phone: payload.phone,
-    Manager: payload.manager,
-    JoinDate: payload.joinDate,
-    AllocationDate: payload.allocationDate,
-    AllocationTime: payload.allocationTime,
-    RequiredHardwareCategory: payload.requiredAssetCategory,
-    Status: payload.status || "Active",
   };
 
-  console.log("[Employee Registration] Request Payload:", body);
+  if (payload.department) body.Department = payload.department;
+  if (payload.designation) body.Designation = payload.designation;
+  if (payload.location) body.Location = payload.location;
+  if (payload.joinDate) body.JoinDate = payload.joinDate;
+  body.AllocationDate = payload.allocationDate;
+  body.AllocationTime = payload.allocationTime;
+  body.RequiredHardwareCategory = payload.requiredAssetCategory;
+
+  console.log("Employee Registration Payload:", body);
 
   try {
     const responseBody = await apiFetch<any>("/admin/employees/register", {
