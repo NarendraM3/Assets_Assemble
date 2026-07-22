@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type {
-  Employee, Asset, Assignment, Ticket, Role, Vendor, Maintenance,
+  Employee, Asset, Assignment, Ticket, Role, Maintenance,
   AssetAssignmentRecord
 } from "@/types/domain";
 import {
@@ -28,7 +28,6 @@ interface DataCtx {
   tickets: Ticket[];
   auditLogs: any[];
   notifications: any[];
-  vendors: Vendor[];
   maintenance: Maintenance[];
   knowledgeBase: any[];
   dashboardStats: any | null;
@@ -51,7 +50,7 @@ interface DataCtx {
   retireAsset: (id: string) => Promise<void>;
   setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
-  verifyOnboardingAsset: (employeeId: string, verificationStatus: string, selectedAsset: any, remarks: string) => Promise<any>;
+  verifyOnboardingAsset: (employeeId: string, verificationStatus: string, selectedAssets: any[], remarks: string, pendingCategories?: string[]) => Promise<any>;
   outOfStockOnboarding: (employeeId: string, remarks: string) => Promise<any>;
   completeOnboardingAllocation: (employeeId: string, assetId: string, remarks: string, actor: string) => Promise<void>;
   markOnboardingComplete: (employeeId: string, remarks: string, actor: string) => Promise<void>;
@@ -101,7 +100,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [auditLogs] = useState<any[]>([]);
   const [notifications] = useState<any[]>([]);
-  const [vendors] = useState<Vendor[]>([]);
   const [maintenance] = useState<Maintenance[]>([]);
   const [knowledgeBase] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
@@ -230,24 +228,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.log("Assignments API Response:", data);
       const raw = Array.isArray(data) ? data : data?.assignments ?? data?.data ?? [];
       console.log("Assignments Count:", raw?.length);
-      const mapped: any[] = raw.map((item: any) => ({
-        AssignmentId: item.AssignmentId ?? item.assignmentId ?? item.id ?? "",
-        EmployeeId: item.EmployeeId ?? item.employeeId ?? "",
-        EmployeeName: item.EmployeeName ?? item.employeeName ?? "",
-        AssetId: item.AssetId ?? item.assetId ?? "",
-        AssetTag: item.AssetTag ?? item.assetTag ?? "",
-        AssetName: item.AssetName ?? item.assetName ?? "",
-        Category: item.Category ?? item.category ?? "",
-        Department: item.Department ?? item.department ?? "",
-        AssignedBy: item.AssignedBy ?? item.assignedBy ?? "",
-        AssignedRole: item.AssignedRole ?? item.assignedRole ?? "",
-        AssignedDate: item.AssignedDate ?? item.assignedDate ?? "",
-        Status: item.Status ?? item.status ?? "",
-        AssignmentStatus: item.AssignmentStatus ?? item.assignmentStatus ?? "",
-        Workflow: item.Workflow ?? item.workflow ?? "",
-        ITComment: item.ITComment ?? item.itComment ?? item.Comments ?? item.comments ?? "",
-        Comments: item.Comments ?? item.comments ?? "",
-      }));
+      const mapped: any[] = [];
+      for (const item of raw) {
+        const eid = item.EmployeeId ?? item.employeeId ?? "";
+        const ename = item.EmployeeName ?? item.employeeName ?? "";
+        const dept = item.Department ?? item.department ?? "";
+        if (Array.isArray(item.AssignedAssets)) {
+          const assets = item.AssignedAssets;
+          if (assets.length === 0) {
+            mapped.push({
+              AssignmentId: "", EmployeeId: eid, EmployeeName: ename,
+              AssetId: "", AssetTag: "", AssetName: "", Category: "",
+              Department: dept, AssignedBy: "", AssignedRole: "",
+              AssignedDate: "", Status: "", AssignmentStatus: "",
+              Workflow: "", ITComment: "", Comments: "",
+            });
+          } else {
+            for (const a of assets) {
+              mapped.push({
+                AssignmentId: a.AssignmentId ?? a.assignmentId ?? item.AssignmentId ?? item.assignmentId ?? "",
+                EmployeeId: eid, EmployeeName: ename,
+                AssetId: a.AssetId ?? a.assetId ?? "",
+                AssetTag: a.AssetTag ?? a.assetTag ?? "",
+                AssetName: a.AssetName ?? a.assetName ?? "",
+                Category: a.Category ?? a.category ?? "",
+                Department: dept,
+                AssignedBy: a.AssignedBy ?? a.assignedBy ?? item.AssignedBy ?? item.assignedBy ?? "",
+                AssignedRole: a.AssignedRole ?? a.assignedRole ?? item.AssignedRole ?? item.assignedRole ?? "",
+                AssignedDate: a.AssignedDate ?? a.assignedDate ?? item.AssignedDate ?? item.assignedDate ?? "",
+                Status: a.Status ?? a.status ?? item.Status ?? item.status ?? "",
+                AssignmentStatus: a.AssignmentStatus ?? a.assignmentStatus ?? item.AssignmentStatus ?? item.assignmentStatus ?? "",
+                Workflow: a.Workflow ?? a.workflow ?? item.Workflow ?? item.workflow ?? "",
+                ITComment: a.ITComment ?? a.itComment ?? item.ITComment ?? item.itComment ?? "",
+                Comments: a.Comments ?? a.comments ?? item.Comments ?? item.comments ?? "",
+              });
+            }
+          }
+        } else {
+          mapped.push({
+            AssignmentId: item.AssignmentId ?? item.assignmentId ?? item.id ?? "",
+            EmployeeId: eid, EmployeeName: ename,
+            AssetId: item.AssetId ?? item.assetId ?? "",
+            AssetTag: item.AssetTag ?? item.assetTag ?? "",
+            AssetName: item.AssetName ?? item.assetName ?? "",
+            Category: item.Category ?? item.category ?? "",
+            Department: dept,
+            AssignedBy: item.AssignedBy ?? item.assignedBy ?? "",
+            AssignedRole: item.AssignedRole ?? item.assignedRole ?? "",
+            AssignedDate: item.AssignedDate ?? item.assignedDate ?? "",
+            Status: item.Status ?? item.status ?? "",
+            AssignmentStatus: item.AssignmentStatus ?? item.assignmentStatus ?? "",
+            Workflow: item.Workflow ?? item.workflow ?? "",
+            ITComment: item.ITComment ?? item.itComment ?? item.Comments ?? item.comments ?? "",
+            Comments: item.Comments ?? item.comments ?? "",
+          });
+        }
+      }
       setAssignmentRecords(mapped);
     } catch (err: any) {
       console.warn("[DataProvider] Failed to fetch assignment records:", err.message);
@@ -410,7 +446,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       allocationTime: empData.allocationTime,
       requiredAssetCategory: empData.requiredAssetCategory,
     });
-    toast.success("Employee created successfully");
+    toast.success("Employee created successfully. Login credentials have been sent to the employee's registered email.");
     await refreshData();
     return result;
   };
@@ -544,17 +580,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const verifyOnboardingAsset = async (
     employeeId: string,
     verificationStatus: string,
-    selectedAsset: any,
-    remarks: string
+    selectedAssets: any[],
+    remarks: string,
+    pendingCategories?: string[]
   ) => {
     try {
-      const assetId = selectedAsset?.AssetId || selectedAsset?.assetId;
-
       const payload = {
         verificationStatus,
-        selectedAsset: {
-          AssetId: assetId
-        },
+        selectedAssets: selectedAssets.map((a: any) => ({
+          AssetId: a.AssetId || a.assetId,
+          Category: a.Category || a.category || ""
+        })),
+        pendingCategories: pendingCategories || [],
         remarks: remarks || ""
       };
 
@@ -567,19 +604,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(payload),
       });
 
+      const allocated = selectedAssets.map((a: any) => ({
+        category: a.Category || a.category || "",
+        assetId: a.AssetId || a.assetId,
+        assetName: a.AssetName || a.assetName || "",
+        assetTag: a.AssetTag || a.assetTag || "",
+      }));
+
+      const pending = (pendingCategories || []).map((cat: string) => ({
+        category: cat,
+        status: "Pending Procurement",
+      }));
+
+      const hasPending = (pendingCategories?.length ?? 0) > 0;
+
       setEmployees((prev) =>
         prev.map((e) =>
           e.id === employeeId
             ? {
                 ...e,
                 verificationStatus: "Verified",
-                allocationStatus: "Sent to IT Support Team" as const,
+                allocationStatus: hasPending ? ("Awaiting Asset Verification" as const) : ("Sent to IT Support Team" as const),
+                allocatedAssets: allocated,
+                pendingAssets: pending,
               }
             : e
         )
       );
 
-      toast.success(response?.message || "Verification completed — sent to IT Support Team");
+      toast.success(
+        hasPending
+          ? (response?.message || "Assets allocated — remaining items pending")
+          : (response?.message || "Verification completed — sent to IT Support Team")
+      );
       await refreshData();
       return response;
     } catch (err: any) {
@@ -726,7 +783,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tickets,
       auditLogs,
       notifications,
-      vendors,
       maintenance,
       knowledgeBase,
       dashboardStats,

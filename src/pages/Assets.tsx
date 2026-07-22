@@ -40,6 +40,7 @@ export default function AssetsPage() {
 
   const [name, setName] = useState("");
   const [assetCategory, setAssetCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [serial, setSerial] = useState("");
 
@@ -49,6 +50,7 @@ export default function AssetsPage() {
     if (searchParams.get("action") === "create") {
       setName("");
       setAssetCategory("");
+      setCustomCategory("");
       setManufacturer("");
       setSerial("");
       setCreateOpen(true);
@@ -65,13 +67,15 @@ export default function AssetsPage() {
   const handleOpenCreate = () => {
     setName("");
     setAssetCategory("");
+    setCustomCategory("");
     setManufacturer("");
     setSerial("");
     setCreateOpen(true);
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !assetCategory || !manufacturer || !serial.trim()) {
+    const finalCategory = assetCategory === "Other" ? customCategory.trim() : assetCategory;
+    if (!name.trim() || !finalCategory || !manufacturer || !serial.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -81,7 +85,7 @@ export default function AssetsPage() {
       await addAsset({
         name: name.trim(),
         uuid: "",
-        category: assetCategory,
+        category: finalCategory,
         manufacturer,
         model: `${manufacturer.slice(0, 2).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`,
         serial: serial.trim().toUpperCase(),
@@ -94,6 +98,7 @@ export default function AssetsPage() {
       toast.success("Asset Created Successfully");
       setName("");
       setAssetCategory("");
+      setCustomCategory("");
       setManufacturer("");
       setSerial("");
     } catch {
@@ -279,7 +284,7 @@ export default function AssetsPage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) refreshData(); }}>
+      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) { setCustomCategory(""); refreshData(); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Asset</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -301,6 +306,12 @@ export default function AssetsPage() {
                 </Select>
               </div>
             </div>
+            {assetCategory === "Other" && (
+              <div>
+                <Label>Custom Category</Label>
+                <Input className="mt-1.5" placeholder="Enter category name" value={customCategory} onChange={e => setCustomCategory(e.target.value)} />
+              </div>
+            )}
             <div>
               <Label>Serial Number</Label>
               <Input className="mt-1.5" placeholder="SN..." value={serial} onChange={e => setSerial(e.target.value)} />

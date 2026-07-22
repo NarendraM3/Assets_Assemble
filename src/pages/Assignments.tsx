@@ -1,17 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useData } from "@/contexts/data";
-import { useAuth } from "@/contexts/auth";
+import type { AssetAssignmentRecord } from "@/types/domain";
+
+interface FlatAssignmentRecord extends AssetAssignmentRecord {
+  Category: string;
+  AssignmentStatus: string;
+}
+
+function dash(value: string | undefined | null): string {
+  return value && value.trim() ? value : "-";
+}
 
 export default function AssignmentsPage() {
-  const { user } = useAuth();
   const { assignmentRecords, fetchAssignmentRecords } = useData();
   const [loading, setLoading] = useState(true);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
@@ -35,54 +42,99 @@ export default function AssignmentsPage() {
     }
   }, [fetchAssignmentRecords, initialFetchDone]);
 
-  useEffect(() => {
-    console.log("Assignments API Response:", assignmentRecords);
-    console.log("Assignments Count:", assignmentRecords?.length);
-  }, [assignmentRecords]);
+  const records = (assignmentRecords ?? []) as FlatAssignmentRecord[];
 
-  useEffect(() => {
-    console.log("Assignments State:", assignmentRecords);
-  }, [assignmentRecords]);
+  const groupedRecords = useMemo(() => {
+    const map = new Map<string, FlatAssignmentRecord[]>();
+    for (const r of records) {
+      const key = r.EmployeeId || "";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    const result: FlatAssignmentRecord[] = [];
+    for (const [, group] of map) {
+      const base = { ...group[0] };
+      const pairs = new Map<string, string>();
+      for (const r of group) {
+        if (r.AssetId && r.AssetId.trim()) {
+          if (!pairs.has(r.AssetId)) {
+            pairs.set(r.AssetId, r.AssetName || "");
+          }
+        }
+      }
+      if (pairs.size > 0) {
+        base.AssetId = Array.from(pairs.keys()).join("\n");
+        base.AssetName = Array.from(pairs.entries()).map(([_, name]) => name && name.trim() ? name : "-").join("\n");
+      }
+      result.push(base);
+    }
+    return result;
+  }, [records]);
 
-  const columns: ColumnDef<any>[] = [
-    { accessorKey: "AssignmentId", header: "Assignment ID" },
-    { accessorKey: "EmployeeId", header: "Employee ID" },
-    { accessorKey: "EmployeeName", header: "Employee Name" },
-    { accessorKey: "AssetId", header: "Asset ID" },
-    { accessorKey: "AssetName", header: "Asset Name" },
-    { accessorKey: "Category", header: "Category" },
-    { accessorKey: "Department", header: "Department" },
-    { accessorKey: "AssignedBy", header: "Assigned By" },
-    { accessorKey: "AssignedDate", header: "Assigned Date" },
+  const columns: ColumnDef<FlatAssignmentRecord>[] = [
     {
-      id: "assignmentStatus",
+      accessorKey: "EmployeeId",
+      header: "Employee ID",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "EmployeeName",
+      header: "Employee Name",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "AssetId",
+      header: "Asset ID",
+      cell: ({ getValue }) => <span className="text-xs whitespace-pre-line">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "AssetName",
+      header: "Asset Name",
+      cell: ({ getValue }) => <span className="text-xs whitespace-pre-line">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "Category",
+      header: "Category",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "Department",
+      header: "Department",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "AssignedBy",
+      header: "Assigned By",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "AssignedDate",
+      header: "Assigned Date",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
+    },
+    {
+      accessorKey: "AssignmentStatus",
       header: "Assignment Status",
-      cell: ({ row }) => <StatusBadge status={row.original.AssignmentStatus || row.original.Status || "-"} />,
+      cell: ({ getValue }) => {
+        const val = getValue<string>();
+        if (!val || !val.trim()) return <span className="text-xs text-muted-foreground">-</span>;
+        return <StatusBadge status={val} />;
+      },
     },
     {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => <StatusBadge status={row.original.Status || row.original.AssignmentStatus || "-"} />,
+      accessorKey: "AssignedRole",
+      header: "Assigned Role",
+      cell: ({ getValue }) => <span className="text-xs">{dash(getValue<string>())}</span>,
     },
-    { accessorKey: "Workflow", header: "Workflow" },
-    { accessorKey: "ITComment", header: "IT Comment" },
   ];
 
-  const displayData = initialFetchDone ? (assignmentRecords ?? []) : [];
+  const displayData = initialFetchDone ? groupedRecords : [];
 
   return (
     <>
       <PageHeader
         title="Assignments"
         description="Assign, return, and transfer assets across employees and locations."
-        actions={
-          user?.role !== "it_support_team" && (
-            <Button onClick={() => toast.success("Assignment created")}>
-              <Plus className="h-4 w-4 mr-1" />
-              New Assignment
-            </Button>
-          )
-        }
       />
       <Card className="p-4">
         {loading ? (

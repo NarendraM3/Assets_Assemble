@@ -10,6 +10,7 @@ import { ChartCard } from "@/components/common/ChartCard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
+import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -232,7 +233,7 @@ export function SupportDashboard() {
                   {selectedWorkflowEmp.requiredAssetCategory && (
                     <>
                       <span className="text-muted-foreground">Required Asset:</span>
-                      <span className="font-semibold text-primary">{selectedWorkflowEmp.requiredAssetCategory}</span>
+                      <HardwareCategoryBadges value={selectedWorkflowEmp.requiredAssetCategory} />
                     </>
                   )}
                 </div>

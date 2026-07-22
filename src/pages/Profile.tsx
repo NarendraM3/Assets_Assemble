@@ -1,22 +1,69 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Timeline } from "@/components/common/Timeline";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 import { getRoleLabel } from "@/lib/utils";
-import { Mail, Phone, MapPin, Building2, Edit } from "lucide-react";
+import { apiFetch } from "@/services/api";
+import { toast } from "sonner";
+import { Mail, Phone, MapPin, Building2, Edit, KeyRound } from "lucide-react";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { employees, assets, tickets } = useData();
   const profile = employees.find(e => e.uuid === user?.id || e.id === user?.id);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
   const myAssets = assets.filter(a => a.assignedTo === user?.display_id || a.assignedTo === user?.id).slice(0, 5);
   const myTickets = tickets.filter(t => t.createdBy === user?.name).slice(0, 5);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("All fields are required.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await apiFetch("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ oldPassword: currentPassword, newPassword }),
+      });
+      toast.success("Password changed successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
     <>
@@ -33,6 +80,50 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground"/>{profile?.location || "Not assigned"}</div>
             <div className="flex items-center gap-2"><Building2 className="h-4 w-4 text-muted-foreground"/>{profile?.department || "Not assigned"}</div>
           </div>
+        </Card>
+        <Card className="p-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <KeyRound className="h-4 w-4" />
+            Change Password
+          </h3>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                placeholder="Enter current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Re-enter new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {passwordError && (
+              <p className="text-xs text-destructive font-medium">{passwordError}</p>
+            )}
+            <Button type="submit" disabled={isChangingPassword} className="w-full">
+              {isChangingPassword ? "Changing..." : "Change Password"}
+            </Button>
+          </form>
         </Card>
           <div className="lg:col-span-2">
             <Tabs defaultValue="assets">

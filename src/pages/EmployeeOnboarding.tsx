@@ -8,12 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
@@ -25,14 +21,30 @@ import {
   getWorkflowStageLabel,
   normalizeWorkflowStatus,
 } from "@/components/common/WorkflowTimeline";
+import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
 import {
   CheckCircle2,
   ClipboardCheck,
-  MoreHorizontal,
   Loader2,
   User,
   Package,
+  Clock,
+  Hourglass,
+  Eye,
+  ArrowRight,
 } from "lucide-react";
+
+interface AllocatedAsset {
+  category: string;
+  assetId: string;
+  assetName: string;
+  assetTag: string;
+}
+
+interface PendingAsset {
+  category: string;
+  status: string;
+}
 
 interface OnboardingRequest {
   id: string;
@@ -68,6 +80,8 @@ interface OnboardingRequest {
   Workflow?: string;
   ITStatus?: string;
   allocationHistory?: { step: string; timestamp: string; actor: string; remarks?: string }[];
+  allocatedAssets?: AllocatedAsset[];
+  pendingAssets?: PendingAsset[];
 }
 
 function getEmployeeName(emp: any): string {
@@ -89,9 +103,11 @@ export default function EmployeeOnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
 
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [itActionProcessing, setItActionProcessing] = useState<string | null>(null);
+  const [localItStatuses, setLocalItStatuses] = useState<Record<string, string>>({});
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewingRequest, setReviewingRequest] = useState<OnboardingRequest | null>(null);
 
   const archiveKey = "onboarding_requests_archive";
 
@@ -137,11 +153,13 @@ export default function EmployeeOnboardingPage() {
           department: emp.Department ?? emp.department ?? "",
           designation: emp.Designation ?? emp.designation ?? "",
           location: emp.Location ?? emp.location ?? "",
-          requiredHardware:
-            emp.RequiredHardwareCategory ??
-            emp.requiredHardwareCategory ??
-            emp.requiredAssetCategory ??
-            "Laptop",
+          requiredHardware: (() => {
+            const raw = emp.RequiredHardwareCategory ??
+              emp.requiredHardwareCategory ??
+              emp.requiredAssetCategory ??
+              "Laptop";
+            return Array.isArray(raw) ? raw.join(", ") : raw;
+          })(),
           requestedDate: emp.CreatedAt ?? emp.createdAt ?? emp.RequestedDate ?? "",
           joiningDate: emp.JoiningDate ?? emp.joiningDate ?? "",
           allocationDate: emp.AllocationDate ?? emp.allocationDate ?? "",
@@ -164,6 +182,16 @@ export default function EmployeeOnboardingPage() {
             emp.AssignedAssetSerialNumber ?? emp.assignedAssetSerialNumber ?? emp.SerialNumber ?? "",
           allocationHistory: emp.AllocationHistory ?? emp.allocationHistory ?? [],
           VerifiedBy: emp.VerifiedBy ?? emp.verifiedBy ?? "",
+          allocatedAssets: (emp.AllocatedAssets ?? emp.allocatedAssets ?? []).map((a: any) => ({
+            category: a.Category ?? a.category ?? "",
+            assetId: a.AssetId ?? a.assetId ?? "",
+            assetName: a.AssetName ?? a.assetName ?? "",
+            assetTag: a.AssetTag ?? a.assetTag ?? "",
+          })),
+          pendingAssets: (emp.PendingAssets ?? emp.pendingAssets ?? []).map((p: any) => ({
+            category: p.Category ?? p.category ?? "",
+            status: p.Status ?? p.status ?? "Waiting for Procurement",
+          })),
         };
       });
 
@@ -211,6 +239,43 @@ export default function EmployeeOnboardingPage() {
     return "Not assigned yet";
   };
 
+  const getAllocatedAssetsList = (request: OnboardingRequest) => {
+    return request.allocatedAssets ?? [];
+  };
+
+  const getPendingAssetsList = (request: OnboardingRequest) => {
+    return request.pendingAssets ?? [];
+  };
+
+  const getRequiredHardwareList = (request: OnboardingRequest): string[] => {
+    return request.requiredHardware
+      ? request.requiredHardware.split(",").map((h) => h.trim()).filter(Boolean)
+      : [];
+  };
+
+  const getAllocatedCount = (request: OnboardingRequest) => {
+    return getAllocatedAssetsList(request).length;
+  };
+
+  const getPendingCount = (request: OnboardingRequest) => {
+    return getPendingAssetsList(request).length;
+  };
+
+  const getTotalRequiredCount = (request: OnboardingRequest) => {
+    return getRequiredHardwareList(request).length;
+  };
+
+  const hasPendingHardware = (request: OnboardingRequest) => {
+    return getPendingCount(request) > 0;
+  };
+
+  const getPendingBannerMessage = (request: OnboardingRequest) => {
+    const pending = getPendingAssetsList(request);
+    if (pending.length === 0) return null;
+    const categories = pending.map(p => p.category).filter(Boolean).join(", ");
+    return `${request.name} has pending asset(s): ${categories}`;
+  };
+
   const getWorkflowFields = (request: OnboardingRequest) => [
     request.CurrentWorkflowState,
     request.OnboardingStatus,
@@ -246,6 +311,7 @@ export default function EmployeeOnboardingPage() {
       "ready for it support",
       "it support pending",
       "ready for allocation",
+      "pending remaining assets",
     ]);
 
     return getWorkflowFields(request).some((status) =>
@@ -255,7 +321,8 @@ export default function EmployeeOnboardingPage() {
 
   const performItAction = async (request: OnboardingRequest, action: "prepare" | "ready" | "deliver") => {
     setItActionProcessing(request.employeeId);
-    setOpenDropdownId(null);
+    const statusLabels: Record<string, string> = { prepare: "Prepared", ready: "Ready", deliver: "Delivered" };
+    setLocalItStatuses((prev) => ({ ...prev, [request.employeeId]: statusLabels[action] }));
     try {
       const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
       console.log(`[IT Support] PATCH ${actionLabel}`);
@@ -266,6 +333,11 @@ export default function EmployeeOnboardingPage() {
       await refreshData();
       await fetchOnboarding();
     } catch (err: any) {
+      setLocalItStatuses((prev) => {
+        const next = { ...prev };
+        delete next[request.employeeId];
+        return next;
+      });
       toast.error(err.message || `Failed to ${action} onboarding`);
     } finally {
       setItActionProcessing(null);
@@ -294,8 +366,47 @@ export default function EmployeeOnboardingPage() {
       accessorKey: "requiredHardware",
       header: "Required Hardware",
       cell: ({ row }) => (
-        <span className="font-semibold text-primary">{row.original.requiredHardware}</span>
+        <HardwareCategoryBadges value={row.original.requiredHardware} />
       ),
+    },
+    {
+      id: "allocatedAssets",
+      header: "Allocated Assets",
+      cell: ({ row }) => {
+        const assets = getAllocatedAssetsList(row.original);
+        if (assets.length === 0) {
+          return <span className="text-muted-foreground text-xs italic">No Assets Allocated</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {assets.map((a, i) => (
+              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary">
+                {a.assetName}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      id: "pendingAssets",
+      header: "Pending Assets",
+      cell: ({ row }) => {
+        const pending = getPendingAssetsList(row.original);
+        if (pending.length === 0) {
+          return <span className="text-muted-foreground text-xs italic">No Pending Assets</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            {pending.map((p, i) => (
+              <span key={i} className="text-xs text-muted-foreground whitespace-nowrap">
+                {p.category}
+                <span className="text-amber-600 ml-1">({p.status || "Waiting for Procurement"})</span>
+              </span>
+            ))}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "joiningDate",
@@ -303,11 +414,23 @@ export default function EmployeeOnboardingPage() {
       cell: ({ row }) => (row.original.joiningDate ? row.original.joiningDate.slice(0, 10) : "-"),
     },
     {
-      id: "verificationStatus",
-      header: "Verification",
+      id: "status",
+      header: "Status",
       cell: ({ row }) => {
-        const vs = row.original.VerificationStatus ?? "";
-        return <StatusBadge status={vs} />;
+        const r = row.original;
+        const localStatus = localItStatuses[r.employeeId];
+        if (localStatus) return <StatusBadge status={localStatus} />;
+        const itStatus = (r.ITStatus || "").trim();
+        if (["Prepared", "Ready", "Delivered"].includes(itStatus)) return <StatusBadge status={itStatus} />;
+        const cwf = (r.CurrentWorkflowState || "").trim();
+        const cwfNorm = cwf.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        if (["Prepared", "Ready", "Delivered"].includes(cwfNorm)) return <StatusBadge status={cwfNorm} />;
+        const allocStatus = (r.allocationStatus || "").trim();
+        const allocNorm = allocStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        if (["Prepared", "Ready", "Delivered"].includes(allocNorm)) return <StatusBadge status={allocNorm} />;
+        if (r.VerificationStatus === "Out of Stock") return <StatusBadge status="Out of Stock" />;
+        if (r.VerificationStatus === "Verified") return <StatusBadge status="Verified" />;
+        return <StatusBadge status="Pending Asset Manager Review" />;
       },
     },
     {
@@ -343,65 +466,27 @@ export default function EmployeeOnboardingPage() {
       header: "Actions",
       cell: ({ row }) => {
         const req = row.original;
+        const hasAllocatedAssets = getAllocatedAssetsList(req).length > 0;
+        const isPendingRemaining = (req.CurrentWorkflowState ?? '').toUpperCase() === 'PENDING_REMAINING_ASSETS';
         const canReview = isITSupportReviewable(req);
-        if (!canReview) return null;
+        const showActions = canReview || hasAllocatedAssets || isPendingRemaining;
+
+        if (!showActions) return null;
 
         return (
-          <DropdownMenu
-            open={openDropdownId === req.employeeId}
-            onOpenChange={(o) => setOpenDropdownId(o ? req.employeeId : null)}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-8"
+            onClick={(event) => {
+              event.stopPropagation();
+              setReviewingRequest(req);
+              setReviewDialogOpen(true);
+            }}
           >
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canReview && (
-                <>
-                  <DropdownMenuItem
-                    disabled={itActionProcessing === req.employeeId}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      performItAction(req, "prepare");
-                    }}
-                  >
-                    {itActionProcessing === req.employeeId ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <ClipboardCheck className="h-4 w-4 mr-2" />
-                    )}
-                    Prepare
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={itActionProcessing === req.employeeId}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      performItAction(req, "ready");
-                    }}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Ready
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={itActionProcessing === req.employeeId}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      performItAction(req, "deliver");
-                    }}
-                  >
-                    <Package className="h-4 w-4 mr-2" />
-                    Deliver
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <Eye className="h-4 w-4 mr-1" />
+            View Details
+          </Button>
         );
       },
     },
@@ -450,6 +535,28 @@ export default function EmployeeOnboardingPage() {
           </TabsList>
         </Tabs>
       </Card>
+
+      {filtered.some(hasPendingHardware) && (
+        <Card className="p-3 mb-4 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <div className="flex items-start gap-3">
+            <Hourglass className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <span className="font-semibold">Pending Hardware Items</span>
+              <div className="mt-1 space-y-0.5">
+                {filtered.filter(hasPendingHardware).map((req) => {
+                  const msg = getPendingBannerMessage(req);
+                  if (!msg) return null;
+                  return (
+                    <div key={req.employeeId} className="text-xs">
+                      <span className="font-medium">{req.name}:</span> {msg}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-4">
         <DataTable
@@ -522,9 +629,7 @@ export default function EmployeeOnboardingPage() {
                   <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
                     Required Hardware
                   </span>
-                  <span className="font-semibold text-primary">
-                    {selectedRequest.requiredHardware || "-"}
-                  </span>
+                  <HardwareCategoryBadges value={selectedRequest.requiredHardware} fallback="-" />
                 </div>
                 <div className="col-span-2">
                   <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
@@ -567,6 +672,164 @@ export default function EmployeeOnboardingPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={reviewDialogOpen} onOpenChange={(o) => { if (!o) { setReviewDialogOpen(false); setReviewingRequest(null); } }}>
+        <DialogContent className="sm:max-w-[560px] rounded-xl p-0 gap-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="p-6 pb-2 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" /> Asset Allocation Details
+            </DialogTitle>
+            <DialogDescription>
+              Review allocated and pending assets for this employee.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reviewingRequest && (() => {
+            const allocated = getAllocatedAssetsList(reviewingRequest);
+            const pending = getPendingAssetsList(reviewingRequest);
+            const required = getRequiredHardwareList(reviewingRequest);
+            const totalRequired = required.length;
+            const allocatedCount = allocated.length;
+            const pendingCount = pending.length;
+
+            return (
+              <>
+                <div className="px-6 py-4 space-y-4 text-sm">
+                  {pendingCount > 0 && (
+                    <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                      <Hourglass className="h-4 w-4 text-amber-500" />
+                      <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                        <span className="font-semibold">Partial Allocation</span> — Some required hardware is still pending procurement.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-y-2 border-b pb-3">
+                    <span className="text-muted-foreground">Employee Name</span>
+                    <span className="font-semibold text-foreground">{reviewingRequest.name}</span>
+                    <span className="text-muted-foreground">Department</span>
+                    <span className="font-medium text-foreground">{reviewingRequest.department}</span>
+                    <span className="text-muted-foreground">Employee ID</span>
+                    <span className="font-medium text-foreground font-mono">{reviewingRequest.employeeId}</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 text-foreground">Required Hardware</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {required.map((cat, i) => (
+                        <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-muted text-foreground">
+                          {cat}
+                        </span>
+                      ))}
+                      {required.length === 0 && (
+                        <span className="text-xs text-muted-foreground italic">No requirements specified</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 text-success flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4" /> Allocated Assets
+                    </h4>
+                    {allocated.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {allocated.map((a, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs text-foreground">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+                            <span className="font-medium">{a.category}</span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-medium">{a.assetName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No assets have been allocated yet.</span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 text-muted-foreground flex items-center gap-1.5">
+                      <Hourglass className="h-4 w-4" /> Pending Assets
+                    </h4>
+                    {pending.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {pending.map((p, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <span className="font-medium">{p.category}</span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                            <span>{p.status || "Waiting for Procurement"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No Pending Assets</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 border-t p-6 bg-background flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    {allocatedCount} of {totalRequired} assets allocated
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => { setReviewDialogOpen(false); setReviewingRequest(null); }}>
+                      Close
+                    </Button>
+                    {isITSupportReviewable(reviewingRequest) && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            performItAction(reviewingRequest, "prepare");
+                            setReviewDialogOpen(false);
+                            setReviewingRequest(null);
+                          }}
+                          disabled={itActionProcessing === reviewingRequest.employeeId}
+                        >
+                          {itActionProcessing === reviewingRequest.employeeId ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <ClipboardCheck className="h-4 w-4 mr-1" />
+                          )}
+                          Prepare
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            performItAction(reviewingRequest, "ready");
+                            setReviewDialogOpen(false);
+                            setReviewingRequest(null);
+                          }}
+                          disabled={allocatedCount === 0 || itActionProcessing === reviewingRequest.employeeId}
+                        >
+                          {itActionProcessing === reviewingRequest.employeeId ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                          )}
+                          Ready
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            performItAction(reviewingRequest, "deliver");
+                            setReviewDialogOpen(false);
+                            setReviewingRequest(null);
+                          }}
+                          disabled={itActionProcessing === reviewingRequest.employeeId}
+                        >
+                          <Package className="h-4 w-4 mr-1" />
+                          Deliver
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

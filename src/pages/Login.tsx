@@ -294,7 +294,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (getToken()) {
       const emp = getStoredEmployee();
-      navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
+      if (emp?.must_change_password) {
+        navigate("/auth/change-password", { replace: true });
+      } else {
+        navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
+      }
     }
   }, [navigate]);
 
@@ -305,7 +309,7 @@ export default function LoginPage() {
     try {
       const result = await login(v.email, v.password);
       if (result.forcePasswordChange) {
-        navigate("/change-password", { replace: true });
+        navigate("/auth/change-password", { replace: true });
         return;
       }
       if (result.user?.role && ROLE_ROUTE[result.user.role]) {

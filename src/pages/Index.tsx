@@ -9,7 +9,11 @@ export default function IndexRedirect() {
     const token = getToken();
     if (token) {
       const emp = getStoredEmployee();
-      navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
+      if (emp?.must_change_password) {
+        navigate("/auth/change-password", { replace: true });
+      } else {
+        navigate(emp ? ROLE_ROUTE[emp.role] : "/dashboard", { replace: true });
+      }
     } else {
       navigate("/login", { replace: true });
     }

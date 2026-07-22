@@ -4,6 +4,7 @@ import { Check, Circle, ArrowDown, XCircle } from "lucide-react";
 export interface WorkflowTimelineProps {
   allocationStatus?: string;
   verificationStatus?: string;
+  currentWorkflowState?: string;
   variant?: "vertical" | "horizontal";
 }
 
@@ -19,6 +20,7 @@ export function getActiveStageIndex(allocationStatus?: string): number {
   if (!normalized || normalized === "awaiting asset verification") return 1;
   if (normalized === "out of stock") return 1;
   if (normalized === "waiting for procurement") return 1;
+  if (normalized === "waiting for remaining hardware") return 1;
   if (["pending it support", "sent to it support", "sent to it support team", "ready for allocation", "ready for it support", "it support pending"].includes(normalized)) return 2;
   if (normalized === "assigned to it support" || normalized === "it asset assignment in progress") return 2;
   if (normalized === "asset allocated" || normalized === "assets allocated") return 3;
@@ -27,7 +29,26 @@ export function getActiveStageIndex(allocationStatus?: string): number {
   return 1;
 }
 
-export function getWorkflowStageLabel(allocationStatus?: string): string {
+export function isPendingRemainingAssets(
+  allocationStatus?: string,
+  verificationStatus?: string,
+  currentWorkflowState?: string,
+): boolean {
+  if (currentWorkflowState?.toUpperCase() === "PENDING_REMAINING_ASSETS") return true;
+  const verification = normalizeWorkflowStatus(verificationStatus);
+  const normalized = normalizeWorkflowStatus(allocationStatus);
+  if (verification === "verified" && normalized === "awaiting asset verification") return true;
+  return false;
+}
+
+export function getWorkflowStageLabel(
+  allocationStatus?: string,
+  verificationStatus?: string,
+  currentWorkflowState?: string,
+): string {
+  if (isPendingRemainingAssets(allocationStatus, verificationStatus, currentWorkflowState)) {
+    return "Waiting for Remaining Hardware";
+  }
   const idx = getActiveStageIndex(allocationStatus);
   if (idx >= 4) return "Completed";
   return STEPS[idx]?.label ?? "Asset Manager";
@@ -52,12 +73,17 @@ export function getStatusDisplayLabel(
     const cwfNorm = normalizeWorkflowStatus(cwf);
     if (cwfNorm === "waiting for procurement") return "Out of Stock";
     if (cwfNorm === "completed") return "Completed";
+    if (cwfNorm === "waiting for remaining hardware") return "Waiting for Remaining Hardware";
     return cwf;
   }
 
   if (normalized === "it approval") return "Completed";
   if (normalized === "it rejection") return "Rejected";
   if (verification === "out of stock" || normalized === "out of stock") return "Out of Stock";
+
+  if (verification === "verified" && normalized === "awaiting asset verification") {
+    return "Waiting for Remaining Hardware";
+  }
 
   if (normalized === "waiting for procurement") {
     if (verification === "verified" || verification === "completed") {
@@ -94,10 +120,11 @@ function StageIcon({ state }: { state: "completed" | "current" | "pending" }) {
   return <Circle className="h-3.5 w-3.5 text-muted-foreground/30" />;
 }
 
-export function WorkflowTimeline({ allocationStatus, variant = "vertical" }: WorkflowTimelineProps) {
+export function WorkflowTimeline({ allocationStatus, verificationStatus, currentWorkflowState, variant = "vertical" }: WorkflowTimelineProps) {
   const activeIndex = getActiveStageIndex(allocationStatus);
   const normalized = normalizeWorkflowStatus(allocationStatus);
   const isRejected = normalized === "rejected" || normalized === "it rejection";
+  const showRemainingHardware = isPendingRemainingAssets(allocationStatus, verificationStatus, currentWorkflowState);
 
   if (isRejected) {
     return (
@@ -162,7 +189,7 @@ export function WorkflowTimeline({ allocationStatus, variant = "vertical" }: Wor
         const isPending = index > activeIndex || (index === activeIndex && activeIndex >= 4);
 
         return (
-          <div key={step.id} className="flex items-center gap-2">
+          <div key={step.id} className={cn("flex gap-2", showRemainingHardware && isCurrent ? "items-start" : "items-center")}>
             <span
               className={cn(
                 "h-5 w-5 rounded-full grid place-items-center shrink-0 transition-all",
@@ -173,19 +200,24 @@ export function WorkflowTimeline({ allocationStatus, variant = "vertical" }: Wor
             >
               <StageIcon state={isCompleted ? "completed" : isCurrent ? "current" : "pending"} />
             </span>
-            <span
-              className={cn(
-                "text-xs font-medium",
-                isCompleted && "text-green-600 dark:text-green-400",
-                isCurrent && "text-blue-600 dark:text-blue-400 font-semibold",
-                isPending && "text-muted-foreground",
+            <div>
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  isCompleted && "text-green-600 dark:text-green-400",
+                  isCurrent && "text-blue-600 dark:text-blue-400 font-semibold",
+                  isPending && "text-muted-foreground",
+                )}
+              >
+                {step.label}
+              </span>
+              {isCurrent && !showRemainingHardware && (
+                <span className="text-[11px] text-blue-500 font-medium ml-1">(In Progress)</span>
               )}
-            >
-              {step.label}
-            </span>
-            {isCurrent && (
-              <span className="text-[11px] text-blue-500 font-medium">(In Progress)</span>
-            )}
+              {isCurrent && showRemainingHardware && (
+                <div className="text-[11px] text-blue-500 font-medium mt-0.5">Waiting for Remaining Hardware</div>
+              )}
+            </div>
           </div>
         );
       })}

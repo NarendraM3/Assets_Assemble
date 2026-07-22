@@ -1,8 +1,8 @@
 import type { Role } from "@/types/domain";
 import {
   LayoutDashboard, Package, Ticket as TicketIcon, User, Users,
-  Building2, Tags, Settings as SettingsIcon, FileBarChart,
-  ClipboardList, Wrench, ShoppingBag, BookOpen, PlusCircle, ScrollText, Calendar,
+  Building2, Tags,
+  ClipboardList, Wrench, PlusCircle, Calendar,
   ListTodo,
 } from "lucide-react";
 
@@ -57,11 +57,6 @@ export const NAV: Record<Role, NavGroup[]> = {
         { to: "/maintenance", label: "Maintenance", icon: Wrench },
       ]
     },
-    {
-      label: "Partners", items: [
-        { to: "/vendors", label: "Vendors", icon: ShoppingBag },
-      ]
-    },
   ],
   it_support_team: [
     {
@@ -83,11 +78,6 @@ export const NAV: Record<Role, NavGroup[]> = {
         { to: "/maintenance", label: "Maintenance", icon: Wrench },
       ]
     },
-    {
-      label: "Partners", items: [
-        { to: "/vendors", label: "Vendors", icon: ShoppingBag },
-      ]
-    },
   ],
   admin: [
     {
@@ -105,13 +95,8 @@ export const NAV: Record<Role, NavGroup[]> = {
       label: "Configuration", items: [
         { to: "/asset-categories", label: "Asset Categories", icon: Tags },
         { to: "/ticket-categories", label: "Ticket Categories", icon: Tags },
-        { to: "/settings", label: "Application Settings", icon: SettingsIcon },
       ]
     },
-    {
-      label: "Insights", items: [
-        { to: "/audit-logs", label: "Audit Logs", icon: ScrollText },
-      ]
-    },
+
   ],
 };

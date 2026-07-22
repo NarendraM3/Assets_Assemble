@@ -18,12 +18,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 import { fetchAssignedAssets } from "@/services/data";
+import { uniqueValues } from "@/lib/live-data";
 import type { Asset } from "@/types/domain";
-
-const DEFAULT_TICKET_CATEGORIES = [
-  "Hardware", "Software", "Network", "Access",
-  "Email", "Peripheral", "Security", "Other",
-];
 
 const schema = z.object({
   title: z.string().trim().min(5, "Title must be at least 5 characters").max(120),
@@ -39,11 +35,7 @@ export default function RaiseTicket() {
   const { tickets, createTicket, uploadFiles } = useData();
   const [assignedAssets, setAssignedAssets] = useState<Asset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(true);
-  const TICKET_CATEGORIES = useMemo(() => {
-    const cats = new Set(tickets.map(t => t.category).filter(Boolean));
-    const merged = new Set([...DEFAULT_TICKET_CATEGORIES, ...cats]);
-    return Array.from(merged).sort();
-  }, [tickets]);
+  const TICKET_CATEGORIES = useMemo(() => uniqueValues(tickets.map(t => t.category)), [tickets]);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);

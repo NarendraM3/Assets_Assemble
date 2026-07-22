@@ -43,6 +43,8 @@ const MAP: Record<string, string> = {
   "IT Asset Assignment In Progress": "bg-orange-500/15 text-orange-600 border-orange-500/20",
   "Asset Allocated": "bg-primary/15 text-primary border-primary/20",
   "Assets Allocated": "bg-teal-500/15 text-teal-600 border-teal-500/20",
+  "Prepared": "bg-blue-500/15 text-blue-600 border-blue-500/20",
+  "Ready": "bg-purple-500/15 text-purple-600 border-purple-500/20",
   "Ready for Delivery": "bg-green-500/15 text-green-600 border-green-500/20",
   // employee
   "Active": "bg-success/15 text-success border-success/20",
@@ -56,6 +58,7 @@ const MAP: Record<string, string> = {
   "Pending": "bg-warning/15 text-warning border-warning/20",
   "Pending IT Support": "bg-warning/15 text-warning border-warning/20",
   "Waiting for Procurement": "bg-warning/15 text-warning border-warning/20",
+  "Waiting for Remaining Hardware": "bg-warning/15 text-warning border-warning/20",
   "Verified": "bg-success/15 text-success border-success/20",
   "Rejected": "bg-destructive/15 text-destructive border-destructive/20",
 };

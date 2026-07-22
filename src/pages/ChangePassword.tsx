@@ -2,65 +2,62 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Lock, KeyRound, ArrowLeft, ShieldCheck, Building2, Boxes } from "lucide-react";
-import { BASE_URL } from "@/services/api";
+import { BASE_URL, removeToken } from "@/services/api";
+import { useAuth } from "@/contexts/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function ChangePasswordPage() {
   const navigate = useNavigate();
-  const [oldPassword, setOldPassword] = useState("");
+  const { user } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 8) return "Password must be at least 8 characters.";
+    if (!/[A-Z]/.test(password)) return "Password must contain an uppercase letter.";
+    if (!/[a-z]/.test(password)) return "Password must contain a lowercase letter.";
+    if (!/[0-9]/.test(password)) return "Password must contain a number.";
+    if (!/[^A-Za-z0-9]/.test(password)) return "Password must contain a special character.";
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!oldPassword || !newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       setError("All fields are required.");
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("New password must be at least 6 characters.");
+    const validationError = validatePassword(newPassword);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("New password and confirm password do not match.");
+      setError("Passwords do not match.");
       return;
     }
 
-    const raw = localStorage.getItem("employee");
-    if (!raw) {
-      setError("Session expired. Please login again.");
-      return;
-    }
-
-    let employeeId = "";
-    try {
-      const emp = JSON.parse(raw);
-      employeeId = emp.EmployeeId || emp.id || emp.display_id || emp.employeeId || "";
-    } catch {
-      setError("Session expired. Please login again.");
-      return;
-    }
-
-    if (!employeeId) {
+    if (!user?.email) {
       setError("Session expired. Please login again.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/change-password`, {
-        method: "PATCH",
+      const res = await fetch(`${BASE_URL}/auth/change-password`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, oldPassword, newPassword }),
+        body: JSON.stringify({ email: user.email, oldPassword: currentPassword, newPassword }),
       });
 
       const data = await res.json();
@@ -70,6 +67,7 @@ export default function ChangePasswordPage() {
       }
 
       localStorage.removeItem("employee");
+      removeToken();
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || "Failed to change password");
@@ -90,7 +88,7 @@ export default function ChangePasswordPage() {
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
               <ShieldCheck className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-950 mb-2">Password Changed Successfully</h2>
+            <h2 className="text-2xl font-bold text-slate-950 mb-2">Password changed successfully.</h2>
             <p className="text-sm text-slate-500 mb-6">Please login again.</p>
             <Button
               onClick={() => navigate("/login", { replace: true })}
@@ -222,17 +220,17 @@ export default function ChangePasswordPage() {
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="oldPassword" className="text-sm font-semibold text-slate-700">
-                    Old Password
+                  <Label htmlFor="currentPassword" className="text-sm font-semibold text-slate-700">
+                    Current Password
                   </Label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
-                      id="oldPassword"
+                      id="currentPassword"
                       type="password"
                       placeholder="Enter current password"
-                      value={oldPassword}
-                      onChange={(e) => setOldPassword(e.target.value)}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
                       className="h-12 rounded-2xl border-slate-200 bg-white/86 pl-11 text-sm shadow-sm transition duration-300 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/12"
                     />
                   </div>

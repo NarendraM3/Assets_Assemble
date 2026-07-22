@@ -32,6 +32,7 @@ export interface Employee {
     | "Assets Allocated"
     | "Ready for Delivery"
     | "Out of Stock"
+    | "Waiting for Procurement"
     | "Completed";
   verificationStatus?: "Pending" | "Verified" | "Out of Stock" | "Completed";
   requiredAssetCategory?: string;
@@ -43,6 +44,16 @@ export interface Employee {
     assignedBy: string;
     remarks?: string;
   };
+  allocatedAssets?: {
+    category: string;
+    assetId: string;
+    assetName: string;
+    assetTag: string;
+  }[];
+  pendingAssets?: {
+    category: string;
+    status: string;
+  }[];
   allocationHistory?: {
     step: string;
     timestamp: string;
@@ -172,18 +183,6 @@ export interface AssetAssignmentRecord {
   AssignedDate: string;
   Status: string;
   Comments: string;
-}
-
-export interface Vendor {
-  id: string;
-  uuid: string;
-  name: string;
-  contact: string;
-  email: string;
-  phone: string;
-  category: string;
-  status: "Active" | "Inactive";
-  contractEnd: string;
 }
 
 export interface Maintenance {

@@ -34,7 +34,6 @@ import Notifications from "./pages/Notifications";
 import Search from "./pages/Search";
 import Reports from "./pages/Reports";
 import Roles from "./pages/Roles";
-import Vendors from "./pages/Vendors";
 import Warranty from "./pages/Warranty";
 import ApprovedRequestQueue from "./pages/ApprovedRequestQueue";
 import OnboardingVerification from "./pages/OnboardingVerification";
@@ -119,7 +118,7 @@ function AuthGuard() {
     if (!loading && !user) {
       navigate("/login", { replace: true });
     } else if (!loading && user?.must_change_password) {
-      navigate("/change-password", { replace: true });
+      navigate("/auth/change-password", { replace: true });
     }
   }, [loading, user, navigate]);
   if (loading) {
@@ -144,7 +143,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/auth/change-password" element={<ChangePassword />} />
           <Route element={<AuthGuard />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
@@ -179,7 +178,6 @@ export function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/roles" element={<Roles />} />
-            <Route path="/vendors" element={<Vendors />} />
             <Route path="/warranty" element={<Warranty />} />
             <Route path="/approved-request-queue" element={<ApprovedRequestQueue />} />
             <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />

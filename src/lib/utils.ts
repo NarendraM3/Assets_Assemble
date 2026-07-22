@@ -17,3 +17,9 @@ export function getRoleLabel(role?: Role | string | null): string {
   if (!role) return "";
   return ROLE_LABEL[role] ?? role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+export function parseHardwareCategories(value: string | string[] | undefined | null): string[] {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return value.split(",").map((s) => s.trim()).filter(Boolean);
+}

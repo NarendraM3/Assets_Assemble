@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
+import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ export function AssetManagerDashboard() {
 
   const [createName, setCreateName] = useState("");
   const [createCategory, setCreateCategory] = useState("");
+  const [createCustomCategory, setCreateCustomCategory] = useState("");
   const [createManufacturer, setCreateManufacturer] = useState("");
   const [createModel, setCreateModel] = useState("");
   const [createSerial, setCreateSerial] = useState("");
@@ -245,7 +247,8 @@ export function AssetManagerDashboard() {
   }, [statusFilter, search]);
 
   const handleCreate = async () => {
-    if (!createName.trim() || !createCategory || !createManufacturer || !createSerial.trim()) {
+    const finalCategory = createCategory === "Other" ? createCustomCategory.trim() : createCategory;
+    if (!createName.trim() || !finalCategory || !createManufacturer || !createSerial.trim()) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -253,7 +256,7 @@ export function AssetManagerDashboard() {
     try {
       const dPayload: Record<string, any> = {
         AssetName: createName.trim(),
-        Category: createCategory,
+        Category: finalCategory,
         Manufacturer: createManufacturer,
         Model: createModel.trim() || `${createManufacturer.slice(0, 2).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`,
         SerialNumber: createSerial.trim().toUpperCase(),
@@ -273,6 +276,7 @@ export function AssetManagerDashboard() {
       setCreateOpen(false);
       setCreateName("");
       setCreateCategory("");
+      setCreateCustomCategory("");
       setCreateManufacturer("");
       setCreateModel("");
       setCreateSerial("");
@@ -660,7 +664,7 @@ export function AssetManagerDashboard() {
                   {selectedWorkflowEmp.requiredAssetCategory && (
                     <>
                       <span className="text-muted-foreground">Required Asset:</span>
-                      <span className="font-semibold text-primary">{selectedWorkflowEmp.requiredAssetCategory}</span>
+                      <HardwareCategoryBadges value={selectedWorkflowEmp.requiredAssetCategory} />
                     </>
                   )}
                 </div>
@@ -700,7 +704,7 @@ export function AssetManagerDashboard() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) setCreateCustomCategory(""); setCreateOpen(o); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Asset</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -737,6 +741,12 @@ export function AssetManagerDashboard() {
                 </Select>
               </div>
             </div>
+            {createCategory === "Other" && (
+              <div>
+                <Label>Custom Category</Label>
+                <Input className="mt-1.5" placeholder="Enter category name" value={createCustomCategory} onChange={(e) => setCreateCustomCategory(e.target.value)} />
+              </div>
+            )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Model</Label>

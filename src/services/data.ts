@@ -212,7 +212,9 @@ export async function createEmployee(payload: any): Promise<RegistrationResult> 
   if (payload.joinDate) body.JoinDate = payload.joinDate;
   body.AllocationDate = payload.allocationDate;
   body.AllocationTime = payload.allocationTime;
-  body.RequiredHardwareCategory = payload.requiredAssetCategory;
+  body.RequiredHardwareCategory = Array.isArray(payload.requiredAssetCategory)
+    ? payload.requiredAssetCategory.join(", ")
+    : payload.requiredAssetCategory;
 
   console.log("Employee Registration Payload:", body);
 

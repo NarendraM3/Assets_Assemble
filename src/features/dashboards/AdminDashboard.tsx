@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
+import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useData } from "@/contexts/data";
@@ -395,7 +396,7 @@ export function AdminDashboard() {
                           {selectedEmp.requiredAssetCategory && (
                             <>
                               <span className="text-muted-foreground">Required Asset:</span>
-                              <span className="font-semibold text-primary">{selectedEmp.requiredAssetCategory}</span>
+                              <HardwareCategoryBadges value={selectedEmp.requiredAssetCategory} />
                             </>
                           )}
                         </div>

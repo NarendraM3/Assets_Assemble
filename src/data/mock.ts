@@ -105,17 +105,6 @@ export interface Assignment {
   status: "Active" | "Returned" | "Transferred";
 }
 
-export interface Vendor {
-  id: string;
-  name: string;
-  contact: string;
-  email: string;
-  phone: string;
-  category: string;
-  status: "Active" | "Inactive";
-  contractEnd: string;
-}
-
 export interface Maintenance {
   id: string;
   assetId: string;
@@ -335,17 +324,6 @@ export const assignments: Assignment[] = assets
     expectedReturn: daysFromNow(Math.floor(rand() * 400)),
     status: "Active",
   }));
-
-export const vendors: Vendor[] = MANUFACTURERS.map((m, i) => ({
-  id: `VND-${100 + i}`,
-  name: `${m} Enterprise`,
-  contact: `${pick(FIRST)} ${pick(LAST)}`,
-  email: `sales@${m.toLowerCase()}.com`,
-  phone: `+1 555-${1000 + i * 111}`,
-  category: pick(CATEGORIES),
-  status: "Active",
-  contractEnd: daysFromNow(Math.floor(rand() * 700)),
-}));
 
 export const maintenance: Maintenance[] = Array.from({ length: 80 }, (_, i) => ({
   id: `MNT-${300 + i}`,
