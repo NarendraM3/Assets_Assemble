@@ -1,43 +1,70 @@
-import { Users, Package, TicketIcon, Timer, Download, FileSpreadsheet, FileText, ShieldCheck, Tag, Laptop, Compass, DollarSign, CalendarDays, KeyRound, User, Mail, Phone, Briefcase, UserCheck, Clock, MapPin, Calendar, HelpCircle, Eye, Loader2, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
+  Users, Package, TicketIcon, CheckCircle, ArrowRight,
+  Loader2, AlertTriangle, User, Mail, Phone, Briefcase,
+  UserCheck, Clock, MapPin, Calendar, HelpCircle, KeyRound,
+} from "lucide-react";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar,
 } from "recharts";
-import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { StatCard } from "@/components/common/StatCard";
-import { ChartCard } from "@/components/common/ChartCard";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/WorkflowTimeline";
 import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
-import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useData } from "@/contexts/data";
 import { useAuth } from "@/contexts/auth";
 import { getRoleLabel } from "@/lib/utils";
-import { toast } from "sonner";
-import { countBy, monthKey } from "@/lib/live-data";
+import { cn } from "@/lib/utils";
+import type { Ticket } from "@/types/domain";
 
-const COLORS = ["oklch(0.55 0.2 255)","oklch(0.65 0.16 150)","oklch(0.72 0.17 55)","oklch(0.6 0.2 25)","oklch(0.65 0.15 300)","oklch(0.6 0.15 180)","oklch(0.7 0.12 40)"];
+function yearMonthKey(dateValue?: string | null) {
+  if (!dateValue) return "Unknown";
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(key: string) {
+  if (key === "Unknown") return "Unknown";
+  const [, m] = key.split("-");
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return monthNames[parseInt(m, 10) - 1] || key;
+}
+
+function findEmployeeName(createdBy: string, employees: { name: string; id: string; email: string }[]): string {
+  if (!createdBy || createdBy === "Unknown") return "N/A";
+  const emp = employees.find(
+    (e) => e.name === createdBy || e.id === createdBy || e.email === createdBy,
+  );
+  return emp?.name || createdBy;
+}
+
+const CATEGORY_ORDER = [
+  "Laptop", "Desktop", "Monitor", "Printer", "Keyboard",
+  "Mouse", "Headset", "Mobile", "Network Device", "Other",
+];
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { employees, assets, tickets, loading, error, refreshData, fetchFullProfile } = useData();
-
-  console.log("[AdminDashboard] Render — employees:", employees.length, "assets:", assets.length, "tickets:", tickets.length, "loading:", loading, "error:", error);
 
   const [selectedEmp, setSelectedEmp] = useState<any | null>(null);
   const [fullProfile, setFullProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshData();
-    }, 30000);
+    const interval = setInterval(() => { refreshData(); }, 30000);
     return () => clearInterval(interval);
   }, [refreshData]);
 
@@ -48,68 +75,100 @@ export function AdminDashboard() {
     }
     let active = true;
     setLoadingProfile(true);
-    fetchFullProfile(selectedEmp.uuid).then(res => {
+    fetchFullProfile(selectedEmp.uuid).then((res) => {
       if (active) {
         setFullProfile(res);
         setLoadingProfile(false);
       }
     });
     return () => { active = false; };
-  }, [selectedEmp]);
+  }, [selectedEmp, fetchFullProfile]);
 
-  const failures = countBy(
-    tickets.filter((ticket) => ticket.assetId),
-    (ticket) => assets.find((asset) => asset.assetId === ticket.assetId)?.category,
-  ).map((item) => ({ c: item.name, v: item.value }));
-  const catData = countBy(tickets, (ticket) => ticket.category).map((item, i) => ({
-    name: item.name, value: item.value, fill: COLORS[i%COLORS.length],
-  }));
-  const deptAssets = countBy(
-    assets.filter((asset) => asset.assignedTo),
-    (asset) => employees.find((employee) => employee.uuid === asset.assignedTo || employee.id === asset.assignedTo)?.department,
-  ).map((item) => ({ d: item.name, v: item.value }));
-  const employeeGrowth = countBy(employees, (employee) => monthKey(employee.joinDate));
-  const assetGrowth = countBy(assets, (asset) => monthKey(asset.purchaseDate));
-  const ticketGrowth = countBy(tickets, (ticket) => monthKey(ticket.createdAt));
-  const growth = Array.from(new Set([...employeeGrowth, ...assetGrowth, ...ticketGrowth].map((item) => item.name))).map((m) => ({
-    m,
-    employees: employeeGrowth.find((item) => item.name === m)?.value ?? 0,
-    assets: assetGrowth.find((item) => item.name === m)?.value ?? 0,
-    tickets: ticketGrowth.find((item) => item.name === m)?.value ?? 0,
-  }));
+  const totalAssets = assets.length;
+  const totalEmployees = employees.length;
+  const openTickets = tickets.filter((t) => t.status !== "Resolved" && t.status !== "Closed").length;
+  const resolvedTickets = tickets.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
 
-  const assetsByCat = countBy(assets, (asset) => asset.category).map((item, i) => ({
-    c: item.name,
-    v: item.value,
-    fill: COLORS[i % COLORS.length]
-  }));
+  const assetStatusData = useMemo(() => {
+    const allocated = assets.filter((a) => a.status === "Assigned" || a.status === "Delivered" || !!a.assignedTo).length;
+    const available = assets.filter((a) => a.status === "Available").length;
+    const maintenance = assets.filter((a) => a.status === "Under Maintenance" || a.status === "Maintenance").length;
+    const retired = assets.filter((a) => a.status === "Retired").length;
+    const total = allocated + available + maintenance + retired || 1;
+    return [
+      { name: "Allocated", value: allocated, percentage: ((allocated / total) * 100).toFixed(1), color: "oklch(0.55 0.2 255)" },
+      { name: "Available", value: available, percentage: ((available / total) * 100).toFixed(1), color: "oklch(0.65 0.16 150)" },
+      { name: "Under Maintenance", value: maintenance, percentage: ((maintenance / total) * 100).toFixed(1), color: "oklch(0.72 0.17 55)" },
+      { name: "Retired", value: retired, percentage: ((retired / total) * 100).toFixed(1), color: "oklch(0.6 0.0 0)" },
+    ];
+  }, [assets]);
 
-  const ticketsByDept = countBy(tickets, (ticket) => employees.find((employee) => employee.name === ticket.createdBy)?.department).map((item) => ({
-    d: item.name,
-    v: item.value,
-  }));
+  const ticketTrends = useMemo(() => {
+    const map = new Map<string, { open: number; resolved: number }>();
+    tickets.forEach((t) => {
+      const createdMonth = yearMonthKey(t.createdAt);
+      if (!map.has(createdMonth)) map.set(createdMonth, { open: 0, resolved: 0 });
+      map.get(createdMonth)!.open++;
+    });
+    tickets
+      .filter((t) => t.status === "Resolved" || t.status === "Closed")
+      .forEach((t) => {
+        const resolvedMonth = yearMonthKey(t.updatedAt);
+        if (!map.has(resolvedMonth)) map.set(resolvedMonth, { open: 0, resolved: 0 });
+        map.get(resolvedMonth)!.resolved++;
+      });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({ month: formatMonthLabel(month), ...data }));
+  }, [tickets]);
 
-  const monthly = countBy(tickets, (ticket) => monthKey(ticket.createdAt)).map((item) => ({
-    m: item.name,
-    opened: item.value,
-    closed: tickets.filter((ticket) => monthKey(ticket.updatedAt) === item.name && ["Resolved", "Closed"].includes(ticket.status)).length
-  }));
+  const recentTickets = useMemo(
+    () =>
+      [...tickets]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5),
+    [tickets],
+  );
 
-  const exportAs = (fmt: string) => toast.success(`Exported as ${fmt}`, { description: "Download started (demo)" });
+  const topCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    assets.forEach((a) => {
+      const cat = a.category || "Other";
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    const result: { category: string; count: number }[] = [];
+    const seen = new Set<string>();
+    CATEGORY_ORDER.forEach((cat) => {
+      if (counts.has(cat)) {
+        result.push({ category: cat, count: counts.get(cat)! });
+        seen.add(cat);
+      }
+    });
+    let otherCount = 0;
+    counts.forEach((count, cat) => {
+      if (!seen.has(cat)) otherCount += count;
+    });
+    if (otherCount > 0) {
+      const existingOther = result.find((r) => r.category === "Other");
+      if (existingOther) {
+        existingOther.count += otherCount;
+      } else {
+        result.push({ category: "Other", count: otherCount });
+      }
+    }
+    return result;
+  }, [assets]);
+
+  const summaryCards = [
+    { label: "Total Assets", value: totalAssets.toLocaleString(), icon: Package, color: "bg-info/10 text-info" },
+    { label: "Total Employees", value: totalEmployees.toLocaleString(), icon: Users, color: "bg-primary/10 text-primary" },
+    { label: "Open Tickets", value: openTickets.toLocaleString(), icon: TicketIcon, color: "bg-warning/10 text-warning" },
+    { label: "Resolved Tickets", value: resolvedTickets.toLocaleString(), icon: CheckCircle, color: "bg-success/10 text-success" },
+  ];
 
   return (
     <>
-      <PageHeader 
-        title="Administration Dashboard" 
-        description="System-wide performance and configuration insights." 
-        actions={
-          <>
-            <Button variant="outline" onClick={() => exportAs("CSV")}><Download className="h-4 w-4 mr-1"/>CSV</Button>
-            <Button variant="outline" onClick={() => exportAs("Excel")}><FileSpreadsheet className="h-4 w-4 mr-1"/>Excel</Button>
-            <Button variant="outline" onClick={() => exportAs("PDF")}><FileText className="h-4 w-4 mr-1"/>PDF</Button>
-          </>
-        }
-      />
+      <PageHeader title="Administration Dashboard" description="System-wide performance and configuration insights." />
 
       {loading && (
         <div className="flex items-center justify-center py-12 mb-6 rounded-lg border bg-card">
@@ -128,186 +187,278 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {!loading && (<>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Employees" value={employees.length} icon={Users} tone="primary" delta={{value:"+12 this month", up:true}} index={0}/>
-        <StatCard label="Assets" value={assets.length.toLocaleString()} icon={Package} tone="info" delta={{value:"+34 this month", up:true}} index={1}/>
-        <StatCard label="Tickets" value={tickets.length} icon={TicketIcon} tone="warning" index={2}/>
-        <StatCard label="Avg Resolution Time" value="4.2h" icon={Timer} tone="success" delta={{value:"-0.3h", up:true}} index={3}/>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <ChartCard title="Top Asset Failures">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={failures}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis dataKey="c" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Bar dataKey="v" fill="var(--destructive)" radius={[6,6,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Ticket Categories">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={catData} dataKey="value" nameKey="name" outerRadius={100}>
-                {catData.map((d,i)=><Cell key={i} fill={d.fill}/>)}
-              </Pie>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Legend wrapperStyle={{ fontSize: 11 }}/>
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Department Assets">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={deptAssets} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis dataKey="d" type="category" stroke="var(--muted-foreground)" fontSize={12} width={80}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Bar dataKey="v" fill="var(--info)" radius={[0,6,6,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Monthly Growth">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={growth}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Legend/>
-              <Line type="monotone" dataKey="employees" stroke="var(--primary)" strokeWidth={2}/>
-              <Line type="monotone" dataKey="assets" stroke="var(--info)" strokeWidth={2}/>
-              <Line type="monotone" dataKey="tickets" stroke="var(--warning)" strokeWidth={2}/>
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-        <ChartCard title="Assets by Category">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={assetsByCat} dataKey="v" nameKey="c" outerRadius={100}>
-                {assetsByCat.map((d, i) => <Cell key={i} fill={d.fill}/>)}
-              </Pie>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Legend wrapperStyle={{ fontSize: 11 }}/>
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Tickets by Department">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={ticketsByDept}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Bar dataKey="v" fill="var(--primary)" radius={[6,6,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-      <div className="grid grid-cols-1 gap-4 mt-6">
-        <ChartCard title="Ticket Volumes">
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={monthly}>
-              <defs>
-                <linearGradient id="o" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--info)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--info)" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="c" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/>
-              <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={12}/>
-              <YAxis stroke="var(--muted-foreground)" fontSize={12}/>
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}/>
-              <Legend/>
-              <Area type="monotone" dataKey="opened" stroke="var(--info)" fill="url(#o)" strokeWidth={2}/>
-              <Area type="monotone" dataKey="closed" stroke="var(--success)" fill="url(#c)" strokeWidth={2}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-      </>)}
-      {/* Employee Onboarding Workflow Section */}
       {!loading && (
-        <Card className="p-4 mt-6">
-          <div className="font-semibold text-sm mb-3 flex items-center justify-between">
-            <span>Employee Onboarding Workflow</span>
-            <span className="text-xs text-muted-foreground font-normal">
-              {employees.filter(e => e.allocationStatus && e.allocationStatus !== "Completed").length} in progress
-            </span>
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {summaryCards.map((card, i) => (
+              <motion.div
+                key={card.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card className="p-5 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
+                  <div className="flex items-center gap-4">
+                    <div className={cn("h-12 w-12 rounded-xl grid place-items-center shrink-0", card.color)}>
+                      <card.icon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{card.label}</div>
+                      <div className="text-2xl font-bold mt-0.5 tabular-nums">{card.value}</div>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
           </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Department</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Workflow Timeline</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Stage</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {employees.filter(e => e.allocationStatus).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
-                      No employees with active workflow found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  employees
-                    .filter(e => e.allocationStatus)
-                    .sort((a, b) => {
-                      const order: Record<string, number> = { "Awaiting Asset Verification": 0, "Ready for Allocation": 1, "Sent to IT Support Team": 1, "Assigned to IT Support": 2, "IT Asset Assignment In Progress": 2, "Asset Allocated": 3, "Assets Allocated": 3, "Ready for Delivery": 3, "Completed": 4 };
-                      return (order[a.allocationStatus ?? ""] ?? 0) - (order[b.allocationStatus ?? ""] ?? 0);
-                    })
-                    .map((emp) => (
-                      <TableRow
-                        key={emp.id}
-                        className="cursor-pointer"
-                        onClick={() => setSelectedEmp(emp)}
-                      >
-                        <TableCell className="text-sm whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center">
-                              {emp.avatar || emp.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
-                            </div>
-                            <div>
-                              <div className="font-medium text-sm">{emp.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-mono">{emp.id}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">{emp.department || "-"}</TableCell>
-                        <TableCell className="min-w-[280px]">
-                          <WorkflowTimeline allocationStatus={emp.allocationStatus} variant="horizontal" />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {getWorkflowStageLabel(emp.allocationStatus)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={emp.status} />
+
+          {/* Middle Row: Asset Status Doughnut | Ticket Overview Line */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* Asset Status Doughnut Chart */}
+            <Card className="p-5">
+              <div className="font-semibold text-sm mb-4">Asset Status</div>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={assetStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={105}
+                    paddingAngle={3}
+                    strokeWidth={0}
+                  >
+                    {assetStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(value: number, name: string) => {
+                      const item = assetStatusData.find((d) => d.name === name);
+                      return [`${value} (${item?.percentage}%)`, name];
+                    }}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                    formatter={(value: string) => {
+                      const item = assetStatusData.find((d) => d.name === value);
+                      return `${value} — ${item?.value} (${item?.percentage}%)`;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Ticket Overview Line Chart */}
+            <Card className="p-5">
+              <div className="font-semibold text-sm mb-4">Ticket Overview</div>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={ticketTrends}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="open"
+                    name="Open Tickets"
+                    stroke="var(--warning)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "var(--warning)" }}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="resolved"
+                    name="Resolved Tickets"
+                    stroke="var(--success)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "var(--success)" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+
+          {/* Bottom Row: Recent Tickets | Top Asset Categories */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* Recent Tickets */}
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="font-semibold text-sm">Recent Tickets</div>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => navigate("/all-tickets")}>
+                  View All Tickets <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Ticket ID</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Subject</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Date</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentTickets.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                          No tickets found.
                         </TableCell>
                       </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
+                    ) : (
+                      recentTickets.map((ticket) => (
+                        <TableRow key={ticket.id} className="hover:bg-muted/30">
+                          <TableCell className="font-mono text-xs font-semibold text-primary whitespace-nowrap">
+                            {ticket.TicketId || ticket.id?.slice(0, 8) || "-"}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {findEmployeeName(ticket.createdBy, employees)}
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[180px] truncate">{ticket.title || "-"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{ticket.createdAt || "-"}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <StatusBadge status={ticket.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* Top Asset Categories Bar Chart */}
+            <Card className="p-5">
+              <div className="font-semibold text-sm mb-4">Top Asset Categories</div>
+              {topCategories.length === 0 ? (
+                <div className="flex items-center justify-center h-[260px] text-muted-foreground text-sm">
+                  No asset data available.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={topCategories} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="category" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--card)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                      {topCategories.map((_, i) => (
+                        <Cell key={i} fill={i < 6 ? "oklch(0.55 0.18 255 / 1)" : "oklch(0.55 0.18 255 / 0.5)"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
           </div>
-        </Card>
+
+          {/* Employee Onboarding Workflow Section */}
+          <Card className="p-4 mt-2">
+            <div className="font-semibold text-sm mb-3 flex items-center justify-between">
+              <span>Employee Onboarding Workflow</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {employees.filter((e) => e.allocationStatus && e.allocationStatus !== "Completed").length} in progress
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Department</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Workflow Timeline</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Stage</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employees.filter((e) => e.allocationStatus).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                        No employees with active workflow found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    employees
+                      .filter((e) => e.allocationStatus)
+                      .sort((a, b) => {
+                        const order: Record<string, number> = {
+                          "Awaiting Asset Verification": 0,
+                          "Ready for Allocation": 1,
+                          "Sent to IT Support Team": 1,
+                          "Assigned to IT Support": 2,
+                          "IT Asset Assignment In Progress": 2,
+                          "Asset Allocated": 3,
+                          "Assets Allocated": 3,
+                          "Ready for Delivery": 3,
+                          "Completed": 4,
+                        };
+                        return (order[a.allocationStatus ?? ""] ?? 0) - (order[b.allocationStatus ?? ""] ?? 0);
+                      })
+                      .map((emp) => (
+                        <TableRow key={emp.id} className="cursor-pointer" onClick={() => setSelectedEmp(emp)}>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center">
+                                {emp.avatar || emp.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">{emp.name}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono">{emp.id}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">{emp.department || "-"}</TableCell>
+                          <TableCell className="min-w-[280px]">
+                            <WorkflowTimeline allocationStatus={emp.allocationStatus} variant="horizontal" />
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {getWorkflowStageLabel(emp.allocationStatus)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <StatusBadge status={emp.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </>
       )}
+
       {/* Employee Full Profile Drawer */}
       <Sheet open={!!selectedEmp} onOpenChange={(o) => !o && setSelectedEmp(null)}>
         <SheetContent className="sm:max-w-[550px] overflow-y-auto h-full pr-6">
@@ -428,9 +579,7 @@ export function AdminDashboard() {
                         <div>
                           <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Last Login</span>
                           <span className="font-medium text-foreground block text-xs">
-                            {fullProfile.last_login 
-                              ? `${fullProfile.last_login.timestamp} (${fullProfile.last_login.ip})` 
-                              : "Never logged in"}
+                            {fullProfile.last_login ? `${fullProfile.last_login.timestamp} (${fullProfile.last_login.ip})` : "Never logged in"}
                           </span>
                         </div>
                       </div>
@@ -496,7 +645,7 @@ export function AdminDashboard() {
                               </div>
                             </div>
                             <div className="font-medium text-foreground text-xs truncate">{ticket.title}</div>
-                            <div className="text-[10px] text-muted-foreground">Updated {ticket.updated_at.slice(0,10)}</div>
+                            <div className="text-[10px] text-muted-foreground">Updated {ticket.updated_at?.slice(0, 10)}</div>
                           </div>
                         ))}
                       </div>

@@ -10,5 +10,6 @@ class User:
         "allocation_date", "allocation_time", "allocation_status",
         "verification_status",
         "required_asset_category", "allocated_asset_details", "allocation_history",
+        "allocated_assets", "pending_assets",
         "created_at", "updated_at", "is_active"
     ]

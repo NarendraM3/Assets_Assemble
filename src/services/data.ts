@@ -28,7 +28,14 @@ interface BackendUser {
   required_asset_category?: string | null;
   allocated_asset_details?: any;
   allocation_history?: any[];
+  AssignedAssets?: any[];
+  PendingAssets?: any[];
 }
+
+const toArray = (value: unknown): any[] => {
+  if (Array.isArray(value)) return value;
+  return [];
+};
 
 function initials(name: string) {
   return (name ?? "")
@@ -63,6 +70,8 @@ export function normalizeUser(raw: any): BackendUser {
       required_asset_category: raw.required_asset_category ?? raw.RequiredHardwareCategory,
       allocated_asset_details: raw.allocated_asset_details,
       allocation_history: raw.allocation_history,
+      AssignedAssets: raw.AssignedAssets ?? raw.assignedAssets,
+      PendingAssets: raw.PendingAssets ?? raw.pendingAssets,
     };
   }
   return raw as BackendUser;
@@ -89,6 +98,16 @@ export function mapEmployee(user: BackendUser): Employee {
     requiredAssetCategory: user.required_asset_category ?? undefined,
     allocatedAssetDetails: user.allocated_asset_details,
     allocationHistory: user.allocation_history,
+    allocatedAssets: toArray(user.AssignedAssets).map((a: any) => ({
+      category: a.Category || a.category || "",
+      assetId: a.AssetId || a.assetId || "",
+      assetName: a.AssetName || a.assetName || "",
+      assetTag: a.AssetTag || a.assetTag || "",
+    })),
+    pendingAssets: toArray(user.PendingAssets).map((a: any) => ({
+      category: a.Category || a.category || "",
+      status: a.Status || a.status || "Pending",
+    })),
   };
 }
 
@@ -186,12 +205,8 @@ export class RegistrationError extends Error {
 }
 
 export async function fetchAssignedAssets(): Promise<any[]> {
-  try {
-    const data = await apiFetch<any>("/profile");
-    return data?.assigned_assets ?? [];
-  } catch {
-    return [];
-  }
+  const data = await apiFetch<any>("/employee/assigned-assets");
+  return data?.assets ?? data?.assigned_assets ?? [];
 }
 
 export async function createEmployee(payload: any): Promise<RegistrationResult> {

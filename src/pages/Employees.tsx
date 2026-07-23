@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Combobox } from "@/components/ui/combobox";
-import { cn } from "@/lib/utils";
+import { cn, parseHardwareCategories } from "@/lib/utils";
 import { WorkflowTimeline } from "@/components/common/WorkflowTimeline";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -481,10 +481,7 @@ export default function EmployeesPage() {
                 currentStatus: p.status || "Pending Allocation",
               }));
 
-              const requiredCategories = (selected.requiredAssetCategory || "")
-                .split(",")
-                .map((c) => c.trim())
-                .filter(Boolean);
+              const requiredCategories = parseHardwareCategories(selected.requiredAssetCategory);
 
               const allocatedCatSet = new Set(
                 (selected.allocatedAssets || []).map((a) => a.category),

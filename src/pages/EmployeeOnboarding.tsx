@@ -84,6 +84,14 @@ interface OnboardingRequest {
   pendingAssets?: PendingAsset[];
 }
 
+const toArray = (value: unknown): any[] => {
+  if (Array.isArray(value)) return value;
+  return [];
+};
+
+const safeString = (value: unknown): string =>
+  typeof value === "string" ? value.trim() : "";
+
 function getEmployeeName(emp: any): string {
   return emp.EmployeeName || `${emp.FirstName || ""} ${emp.LastName || ""}`.trim() || "-";
 }
@@ -182,13 +190,13 @@ export default function EmployeeOnboardingPage() {
             emp.AssignedAssetSerialNumber ?? emp.assignedAssetSerialNumber ?? emp.SerialNumber ?? "",
           allocationHistory: emp.AllocationHistory ?? emp.allocationHistory ?? [],
           VerifiedBy: emp.VerifiedBy ?? emp.verifiedBy ?? "",
-          allocatedAssets: (emp.AllocatedAssets ?? emp.allocatedAssets ?? []).map((a: any) => ({
+          allocatedAssets: toArray(emp.AllocatedAssets).map((a: any) => ({
             category: a.Category ?? a.category ?? "",
             assetId: a.AssetId ?? a.assetId ?? "",
             assetName: a.AssetName ?? a.assetName ?? "",
             assetTag: a.AssetTag ?? a.assetTag ?? "",
           })),
-          pendingAssets: (emp.PendingAssets ?? emp.pendingAssets ?? []).map((p: any) => ({
+          pendingAssets: toArray(emp.PendingAssets).map((p: any) => ({
             category: p.Category ?? p.category ?? "",
             status: p.Status ?? p.status ?? "Waiting for Procurement",
           })),
@@ -232,25 +240,26 @@ export default function EmployeeOnboardingPage() {
     const asset = getAssignedAsset(request);
     if (asset) return `${asset.assetName} (${asset.assetTag || asset.assetId})`;
     if (request.AssignedAssetName || request.AssignedAssetTag) {
-      return `${request.AssignedAssetName || "Assigned asset"}${
-        request.AssignedAssetTag ? ` (${request.AssignedAssetTag})` : ""
-      }`;
+      return `${request.AssignedAssetName || "Assigned asset"}${request.AssignedAssetTag ? ` (${request.AssignedAssetTag})` : ""
+        }`;
     }
     return "Not assigned yet";
   };
 
   const getAllocatedAssetsList = (request: OnboardingRequest) => {
-    return request.allocatedAssets ?? [];
+    return Array.isArray(request.allocatedAssets) ? request.allocatedAssets : [];
   };
 
   const getPendingAssetsList = (request: OnboardingRequest) => {
-    return request.pendingAssets ?? [];
+    return Array.isArray(request.pendingAssets) ? request.pendingAssets : [];
   };
 
   const getRequiredHardwareList = (request: OnboardingRequest): string[] => {
-    return request.requiredHardware
-      ? request.requiredHardware.split(",").map((h) => h.trim()).filter(Boolean)
-      : [];
+    const raw: any = request.requiredHardware;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map((s: any) => safeString(s)).filter(Boolean);
+    if (typeof raw === "string") return raw.split(",").map((s: string) => safeString(s)).filter(Boolean);
+    return [];
   };
 
   const getAllocatedCount = (request: OnboardingRequest) => {
@@ -420,12 +429,12 @@ export default function EmployeeOnboardingPage() {
         const r = row.original;
         const localStatus = localItStatuses[r.employeeId];
         if (localStatus) return <StatusBadge status={localStatus} />;
-        const itStatus = (r.ITStatus || "").trim();
+        const itStatus = safeString(r.ITStatus);
         if (["Prepared", "Ready", "Delivered"].includes(itStatus)) return <StatusBadge status={itStatus} />;
-        const cwf = (r.CurrentWorkflowState || "").trim();
+        const cwf = safeString(r.CurrentWorkflowState);
         const cwfNorm = cwf.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         if (["Prepared", "Ready", "Delivered"].includes(cwfNorm)) return <StatusBadge status={cwfNorm} />;
-        const allocStatus = (r.allocationStatus || "").trim();
+        const allocStatus = safeString(r.allocationStatus);
         const allocNorm = allocStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         if (["Prepared", "Ready", "Delivered"].includes(allocNorm)) return <StatusBadge status={allocNorm} />;
         if (r.VerificationStatus === "Out of Stock") return <StatusBadge status="Out of Stock" />;
@@ -439,8 +448,8 @@ export default function EmployeeOnboardingPage() {
       cell: ({ row }) => {
         const ws = getStatusDisplayLabel(
           row.original.CurrentWorkflowState ??
-            row.original.OnboardingStatus ??
-            row.original.allocationStatus,
+          row.original.OnboardingStatus ??
+          row.original.allocationStatus,
           {
             verificationStatus: row.original.VerificationStatus,
             inventoryVerified: row.original.InventoryVerified,
@@ -650,8 +659,8 @@ export default function EmployeeOnboardingPage() {
                   <span className="font-medium text-foreground">
                     {getWorkflowStageLabel(
                       selectedRequest.CurrentWorkflowState ||
-                        selectedRequest.OnboardingStatus ||
-                        selectedRequest.allocationStatus,
+                      selectedRequest.OnboardingStatus ||
+                      selectedRequest.allocationStatus,
                     )}
                   </span>
                   <span className="text-muted-foreground">Workflow Status:</span>

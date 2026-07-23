@@ -1,7 +1,8 @@
 import type { Asset, AssetStatus } from "@/types/domain";
 
-export function normalizeAssetStatus(status?: string | null): AssetStatus {
-  const value = (status || "Available").trim().toLowerCase();
+export function normalizeAssetStatus(status?: unknown): AssetStatus {
+  const raw = status == null ? "Available" : String(status);
+  const value = raw.trim().toLowerCase();
 
   if (value === "damaged" || value === "under maintenance" || value === "maintenance") {
     return "Under Maintenance";

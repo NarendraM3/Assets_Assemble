@@ -176,7 +176,7 @@ export async function createTicket(
     department: string;
     employeeId: string;
     created_by_id: string;
-    asset_id?: string | null;
+    RelatedAssetId?: string | null;
     attachments?: string[];
   },
 ): Promise<Ticket> {

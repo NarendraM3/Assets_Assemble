@@ -54,8 +54,9 @@ export function getWorkflowStageLabel(
   return STEPS[idx]?.label ?? "Asset Manager";
 }
 
-export function normalizeWorkflowStatus(status?: string): string {
-  return (status ?? "").replace(/_/g, " ").trim().toLowerCase();
+export function normalizeWorkflowStatus(status?: unknown): string {
+  const s = status == null ? "" : String(status);
+  return s.replace(/_/g, " ").trim().toLowerCase();
 }
 
 export function getStatusDisplayLabel(

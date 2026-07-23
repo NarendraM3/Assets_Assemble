@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import { apiFetch, apiUpload } from "@/services/api";
-import { Package, CheckCircle2, PackageCheck, Wrench, Archive, Plus, Download, Upload, MoreHorizontal, Eye, Edit, Trash2, ChevronDown, FileUp, ChevronLeft, ChevronRight, Search, Loader2 } from "lucide-react";
+import { Package, CheckCircle2, PackageCheck, Wrench, Archive, Plus, Download, Upload, MoreHorizontal, Eye, Edit, Trash2, ChevronDown, FileUp, ChevronLeft, ChevronRight, Search, Loader2, ShieldCheck, CalendarDays, ArrowRight, Boxes, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Card } from "@/components/ui/card";
@@ -18,10 +20,39 @@ import { WorkflowTimeline, getWorkflowStageLabel } from "@/components/common/Wor
 import { HardwareCategoryBadges } from "@/components/common/HardwareCategoryBadges";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChartCard } from "@/components/common/ChartCard";
 import { toast } from "sonner";
 import { assetStats, normalizeAssetStatus } from "@/lib/assets";
 import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 import * as XLSX from "xlsx";
+
+function toStr(val: unknown): string {
+  if (val == null) return "";
+  if (typeof val === "string") return val;
+  if (val instanceof Date || typeof val === "number") return String(val);
+  if (typeof val === "object" && val?.toString) return val.toString();
+  return String(val);
+}
+
+const CUSTOM_TOOLTIP_STYLE = {
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: "8px",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  fontSize: "13px",
+};
+
+const STATUS_CHART_COLORS: Record<string, string> = {
+  Allocated: "#3b82f6",
+  Available: "#22c55e",
+  "Under Maintenance": "#f59e0b",
+  Retired: "#ef4444",
+};
+
+const CATEGORY_COLORS = [
+  "#6366f1", "#ec4899", "#14b8a6", "#f97316", "#8b5cf6",
+  "#06b6d4", "#84cc16", "#f43f5e", "#64748b", "#a855f7",
+];
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -69,8 +100,10 @@ export function AssetManagerDashboard() {
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const navigate = useNavigate();
 
   const [createName, setCreateName] = useState("");
   const [createCategory, setCreateCategory] = useState("");
@@ -119,24 +152,24 @@ export function AssetManagerDashboard() {
         }
 
         const assets = rawAssets.map((item: any) => ({
-          assetId: item.AssetId || item.assetId || item.display_id || item.id || "",
-          assetName: item.AssetName || item.assetName || item.name || "",
-          assetTag: item.AssetTag || item.assetTag || "",
-          brand: item.Brand || item.brand || item.manufacturer || "",
-          category: item.Category || item.category || "",
-          model: item.Model || item.model || "",
-          serialNumber: item.SerialNumber || item.serialNumber || item.serial || "",
-          status: normalizeAssetStatus(item.Status || item.status),
-          assignedTo: item.AssignedTo || item.assignedTo || item.assigned_to_id || null,
-          purchaseDate: item.PurchaseDate || item.purchaseDate || item.purchase_date || "",
-          warrantyExpiry: item.WarrantyExpiry || item.warrantyExpiry || item.warranty_expiry || "",
-          condition: item.Condition || item.condition || "",
-          vendor: item.Vendor || item.vendor || "",
-          createdAt: item.CreatedAt || item.createdAt || item.created_at || "",
-          updatedAt: item.UpdatedAt || item.updatedAt || "",
-          createdBy: item.CreatedBy || item.createdBy || "",
-          assignedAt: item.AssignedAt || item.assignedAt || "",
-          hardwareRequired: item.HardwareRequired || item.hardwareRequired || "",
+          assetId: toStr(item.AssetId || item.assetId || item.display_id || item.id),
+          assetName: toStr(item.AssetName || item.assetName || item.name),
+          assetTag: toStr(item.AssetTag || item.assetTag),
+          brand: toStr(item.Brand || item.brand || item.manufacturer),
+          category: toStr(item.Category || item.category),
+          model: toStr(item.Model || item.model),
+          serialNumber: toStr(item.SerialNumber || item.serialNumber || item.serial),
+          status: normalizeAssetStatus(toStr(item.Status || item.status)),
+          assignedTo: toStr(item.AssignedTo || item.assignedTo || item.assigned_to_id),
+          purchaseDate: toStr(item.PurchaseDate || item.purchaseDate || item.purchase_date),
+          warrantyExpiry: toStr(item.WarrantyExpiry || item.warrantyExpiry || item.warranty_expiry),
+          condition: toStr(item.Condition || item.condition),
+          vendor: toStr(item.Vendor || item.vendor),
+          createdAt: toStr(item.CreatedAt || item.createdAt || item.created_at),
+          updatedAt: toStr(item.UpdatedAt || item.updatedAt),
+          createdBy: toStr(item.CreatedBy || item.createdBy),
+          assignedAt: toStr(item.AssignedAt || item.assignedAt),
+          hardwareRequired: toStr(item.HardwareRequired || item.hardwareRequired),
         }));
         setAllAssets(assets);
         console.log(`[AssetManagerDashboard] Total assets received: ${rawAssets.length}`);
@@ -164,6 +197,17 @@ export function AssetManagerDashboard() {
       } catch (err: any) {
         console.warn("[AssetManagerDashboard] Failed to fetch employees:", err.message);
         console.warn("[AssetManagerDashboard] HTTP Status:", err.status ?? "N/A");
+      }
+
+      try {
+        console.log("[AssetManagerDashboard] >>> REQUEST: GET /asset-manager/assignments");
+        const asgData = await apiFetch<any>("/asset-manager/assignments");
+        console.log("[AssetManagerDashboard] <<< RESPONSE STATUS: 200");
+        const rawAsg = Array.isArray(asgData) ? asgData : asgData?.data ?? asgData?.assignments ?? [];
+        setAssignments(rawAsg);
+      } catch (err: any) {
+        console.warn("[AssetManagerDashboard] Failed to fetch assignments:", err.message);
+        setAssignments([]);
       }
     } catch (err: any) {
       console.error("[AssetManagerDashboard] Dashboard load error:", err);
@@ -211,6 +255,87 @@ export function AssetManagerDashboard() {
     );
     return emp || null;
   }, [employees]);
+
+  const underWarrantyCount = useMemo(() => {
+    const now = new Date();
+    return allAssets.filter((a: any) => {
+      if (!a.warrantyExpiry) return false;
+      return new Date(a.warrantyExpiry) >= now;
+    }).length;
+  }, [allAssets]);
+
+  const statusChartData = useMemo(() => {
+    const statusMap: Record<string, number> = {};
+    const STATUS_LABELS = ["Allocated", "Available", "Under Maintenance", "Retired"];
+    for (const a of allAssets) {
+      const s = a.status;
+      if (s === "Assigned") statusMap["Allocated"] = (statusMap["Allocated"] || 0) + 1;
+      else if (STATUS_LABELS.includes(s)) statusMap[s] = (statusMap[s] || 0) + 1;
+    }
+    const total = Object.values(statusMap).reduce((sum, v) => sum + v, 0);
+    return STATUS_LABELS.map((label) => ({
+      name: label,
+      value: statusMap[label] || 0,
+      pct: total > 0 ? ((statusMap[label] || 0) / total) * 100 : 0,
+      color: STATUS_CHART_COLORS[label] || "#94a3b8",
+    }));
+  }, [allAssets]);
+
+  const hasWarrantyData = useMemo(() => {
+    return allAssets.some((a: any) => a.warrantyExpiry && typeof a.warrantyExpiry === "string" && a.warrantyExpiry.trim());
+  }, [allAssets]);
+
+  const warrantyChartData = useMemo(() => {
+    const buckets = [0, 0, 0];
+    const labels = ["0–30 Days", "31–60 Days", "61–90 Days"];
+    const now = new Date();
+    for (const a of allAssets) {
+      if (!a.warrantyExpiry) continue;
+      const expiry = new Date(a.warrantyExpiry);
+      if (isNaN(expiry.getTime())) continue;
+      const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days < 0) continue;
+      if (days <= 30) buckets[0]++;
+      else if (days <= 60) buckets[1]++;
+      else if (days <= 90) buckets[2]++;
+    }
+    return labels.map((label, i) => ({ name: label, count: buckets[i] }));
+  }, [allAssets]);
+
+  const categoryChartData = useMemo(() => {
+    const catMap: Record<string, number> = {};
+    for (const a of allAssets) {
+      const cat = a.category || "Others";
+      catMap[cat] = (catMap[cat] || 0) + 1;
+    }
+    const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+    const top = sorted.slice(0, 9);
+    const rest = sorted.slice(9);
+    const othersCount = rest.reduce((sum, [, count]) => sum + count, 0);
+    const result = top.map(([name, count], i) => ({
+      name,
+      count,
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+    }));
+    if (othersCount > 0) {
+      result.push({
+        name: "Others",
+        count: othersCount,
+        color: CATEGORY_COLORS[9],
+      });
+    }
+    const total = result.reduce((sum, d) => sum + d.count, 0);
+    return result.map((d) => ({ ...d, pct: total > 0 ? (d.count / total) * 100 : 0 }));
+  }, [allAssets]);
+
+  const recentAllocations = useMemo(() => {
+    const sorted = [...assignments].sort((a: any, b: any) => {
+      const dateA = a.AssignedDate || a.assignedDate || "";
+      const dateB = b.AssignedDate || b.assignedDate || "";
+      return dateB.localeCompare(dateA);
+    });
+    return sorted.slice(0, 5);
+  }, [assignments]);
 
   const filteredAssets = useMemo(() => {
     let result = [...allAssets];
@@ -272,7 +397,7 @@ export function AssetManagerDashboard() {
         method: "POST",
         body: JSON.stringify(dPayload),
       });
-      toast.success("Asset Created Successfully");
+      toast.success("Asset added successfully");
       setCreateOpen(false);
       setCreateName("");
       setCreateCategory("");
@@ -338,9 +463,10 @@ export function AssetManagerDashboard() {
     setEditOpen(true);
   };
 
-  const formatDate = (d: string) => {
-    if (!d) return "-";
-    return d.slice(0, 10);
+  const formatDate = (d: unknown) => {
+    const s = toStr(d);
+    if (!s) return "-";
+    return s.slice(0, 10);
   };
 
   function renderAssetId(a: any) {
@@ -360,8 +486,8 @@ export function AssetManagerDashboard() {
     return (
       <>
         <PageHeader title="Asset Manager Dashboard" description="Loading assets from database..." />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="p-4 space-y-2">
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-8 w-16" />
@@ -413,10 +539,7 @@ export function AssetManagerDashboard() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setCreateOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />Single Asset
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBulkOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />Multiple Assets
+                  <Plus className="h-4 w-4 mr-2" />Add Asset
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4 mr-2" />Import Excel
@@ -427,13 +550,163 @@ export function AssetManagerDashboard() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Assets" value={stats.total_assets.toLocaleString()} icon={Package} tone="primary" index={0} />
-        <StatCard label="Assigned" value={stats.assigned_assets} icon={PackageCheck} tone="info" index={1} />
-        <StatCard label="Available" value={stats.available_assets} icon={CheckCircle2} tone="success" index={2} />
-        <StatCard label="In Maintenance" value={stats.maintenance_assets} icon={Wrench} tone="warning" index={3} />
-        <StatCard label="Out of Stock" value={stats.out_of_stock_assets} icon={Archive} tone="danger" index={4} />
+      {/* ===== DASHBOARD OVERVIEW ===== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Total Assets" value={allAssets.length.toLocaleString()} icon={Boxes} tone="primary" index={0} />
+        <StatCard label="Allocated Assets" value={stats.assigned_assets.toLocaleString()} icon={Users} tone="info" index={1} />
+        <StatCard label="Available Assets" value={stats.available_assets.toLocaleString()} icon={CheckCircle2} tone="success" index={2} />
+        <StatCard label="Under Warranty" value={underWarrantyCount.toLocaleString()} icon={ShieldCheck} tone="warning" index={3} />
       </div>
+
+      {/* Middle Row: Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <ChartCard title="Assets by Status" description="Distribution of assets by current status">
+          <div className="flex flex-col items-center">
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={statusChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={110}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {statusChartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={CUSTOM_TOOLTIP_STYLE}
+                  formatter={(value: number, name: string) => {
+                    const item = statusChartData.find((d) => d.name === name);
+                    return [`${value} (${item?.pct?.toFixed(1) || 0}%)`, name];
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap justify-center gap-4 mt-2">
+              {statusChartData.map((d) => (
+                <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                  <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ background: d.color }} />
+                  <span className="text-muted-foreground">{d.name}</span>
+                  <span className="font-medium">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+
+        <ChartCard title="Warranty Expiry" description="Assets expiring within the next 90 days">
+          {hasWarrantyData ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={warrantyChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={{ stroke: "#e2e8f0" }} />
+                <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={CUSTOM_TOOLTIP_STYLE}
+                  formatter={(value: number) => [`${value} asset${value !== 1 ? "s" : ""}`, "Count"]}
+                />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                  {warrantyChartData.map((_, i) => (
+                    <Cell key={i} fill={i === 0 ? "#ef4444" : i === 1 ? "#f59e0b" : "#3b82f6"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[260px] text-muted-foreground text-sm">
+              No warranty data available.
+            </div>
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Bottom Row: Allocations + Categories */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <ChartCard
+          title="Recent Asset Allocations"
+          description="Latest 5 asset assignments"
+          action={
+            <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => navigate("/assignments")}>
+              View All Allocations <ArrowRight className="h-3 w-3" />
+            </Button>
+          }
+        >
+          {recentAllocations.length === 0 ? (
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+              No allocation records found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee ID</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Employee Name</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Asset ID</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Asset Name</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Allocation Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentAllocations.map((r: any, i: number) => (
+                    <TableRow key={r.AssignmentId || r.AssetId || i}>
+                      <TableCell className="text-sm font-mono whitespace-nowrap">{r.EmployeeId || r.employeeId || "-"}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{r.EmployeeName || r.employeeName || "-"}</TableCell>
+                      <TableCell className="text-sm font-mono whitespace-nowrap">{r.AssetId || r.assetId || "-"}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{r.AssetName || r.assetName || "-"}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatDate(r.AssignedDate || r.assignedDate)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Top Asset Categories" description="Asset distribution by category">
+          <div className="flex flex-col items-center">
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={categoryChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="count"
+                >
+                  {categoryChartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={CUSTOM_TOOLTIP_STYLE}
+                  formatter={(value: number, name: string) => {
+                    const item = categoryChartData.find((d) => d.name === name);
+                    return [`${value} (${item?.pct?.toFixed(1) || 0}%)`, name];
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-2">
+              {categoryChartData.map((d) => (
+                <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                  <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ background: d.color }} />
+                  <span className="text-muted-foreground">{d.name}</span>
+                  <span className="font-medium">{d.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* ===== END DASHBOARD OVERVIEW ===== */}
 
       <Card className="p-4 mb-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -733,10 +1006,10 @@ export function AssetManagerDashboard() {
                     <SelectItem value="HP">HP</SelectItem>
                     <SelectItem value="Lenovo">Lenovo</SelectItem>
                     <SelectItem value="Apple">Apple</SelectItem>
-                    <SelectItem value="Microsoft">Microsoft</SelectItem>
+                    <SelectItem value="Acer">Acer</SelectItem>
+                    <SelectItem value="Asus">Asus</SelectItem>
+                    <SelectItem value="MSI">MSI</SelectItem>
                     <SelectItem value="Samsung">Samsung</SelectItem>
-                    <SelectItem value="Cisco">Cisco</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -795,10 +1068,10 @@ export function AssetManagerDashboard() {
                       <SelectItem value="HP">HP</SelectItem>
                       <SelectItem value="Lenovo">Lenovo</SelectItem>
                       <SelectItem value="Apple">Apple</SelectItem>
-                      <SelectItem value="Microsoft">Microsoft</SelectItem>
+                      <SelectItem value="Acer">Acer</SelectItem>
+                      <SelectItem value="Asus">Asus</SelectItem>
+                      <SelectItem value="MSI">MSI</SelectItem>
                       <SelectItem value="Samsung">Samsung</SelectItem>
-                      <SelectItem value="Cisco">Cisco</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -836,14 +1109,6 @@ export function AssetManagerDashboard() {
           onDone={() => { setImportOpen(false); loadData(); }}
         />
       )}
-
-      {bulkOpen && (
-        <BulkDialog
-          open={bulkOpen}
-          onOpenChange={setBulkOpen}
-          onDone={() => { setBulkOpen(false); loadData(); }}
-        />
-      )}
     </>
   );
 }
@@ -856,9 +1121,27 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      await apiUpload("/asset-manager/bulk", formData);
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const isExcel = ext === "xlsx" || ext === "xls" || ext === "csv";
+
+      if (isExcel) {
+        const fileData = await file.arrayBuffer();
+        const workbook = XLSX.read(fileData, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const assets = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        console.log("Bulk Upload Payload:", assets);
+
+        await apiFetch("/asset-manager/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assets }),
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("file", file);
+        await apiUpload("/asset-manager/bulk", formData);
+      }
       toast.success("Import successful");
       onDone();
     } catch (err: any) {
@@ -893,86 +1176,4 @@ function ImportDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
   );
 }
 
-function BulkDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (v: boolean) => void; onDone: () => void }) {
-  const [rows, setRows] = useState<any[]>([{ name: "", category: "", manufacturer: "", serial: "" }]);
-  const [saving, setSaving] = useState(false);
 
-  const addRow = () => setRows((prev) => [...prev, { name: "", category: "", manufacturer: "", serial: "" }]);
-  const updateRow = (i: number, field: string, value: string) =>
-    setRows((prev) => prev.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
-  const removeRow = (i: number) => setRows((prev) => prev.filter((_, j) => j !== i));
-
-  const handleSave = async () => {
-    const valid = rows.filter((r) => r.name && r.serial);
-    if (valid.length === 0) { toast.error("Add at least one asset with name and serial"); return; }
-    setSaving(true);
-    try {
-      const payload = {
-        assets: valid.map((r) => ({
-          name: r.name,
-          category: r.category || "Other",
-          manufacturer: r.manufacturer || "Other",
-          serial: r.serial.toUpperCase(),
-          purchase_date: todayStr(),
-          warranty_expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
-          cost: Math.floor(Math.random() * 2500) + 500,
-          status: "Available",
-        })),
-      };
-      console.log("[AssetManagerDashboard] Bulk Request Payload:", JSON.stringify(payload, null, 2));
-      await apiFetch("/assets/bulk", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      toast.success(`${valid.length} asset(s) added`);
-      onDone();
-    } catch (err: any) {
-      console.error("[AssetManagerDashboard] Bulk Add Error:", err);
-      toast.error(err.message || "Bulk add failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader><DialogTitle>Add Multiple Assets</DialogTitle></DialogHeader>
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {rows.map((row, i) => (
-            <div key={i} className="border rounded-lg p-3 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Asset #{i + 1}</span>
-                {rows.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeRow(i)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Name *" value={row.name} onChange={(e) => updateRow(i, "name", e.target.value)} />
-                <Input placeholder="Serial *" value={row.serial} onChange={(e) => updateRow(i, "serial", e.target.value)} />
-                <Select value={row.category} onValueChange={(value) => updateRow(i, "category", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STANDARD_HARDWARE_CATEGORIES.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input placeholder="Brand" value={row.manufacturer} onChange={(e) => updateRow(i, "manufacturer", e.target.value)} />
-              </div>
-            </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={addRow}><Plus className="h-3 w-3 mr-1" />Add Row</Button>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

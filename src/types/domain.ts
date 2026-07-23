@@ -33,8 +33,9 @@ export interface Employee {
     | "Ready for Delivery"
     | "Out of Stock"
     | "Waiting for Procurement"
+    | "Pending Remaining Assets"
     | "Completed";
-  verificationStatus?: "Pending" | "Verified" | "Out of Stock" | "Completed";
+  verificationStatus?: "Pending" | "Verified" | "Partial Allocation" | "Out of Stock" | "Completed";
   requiredAssetCategory?: string;
   allocatedAssetDetails?: {
     assetId: string;

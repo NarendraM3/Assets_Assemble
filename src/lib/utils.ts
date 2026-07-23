@@ -18,8 +18,9 @@ export function getRoleLabel(role?: Role | string | null): string {
   return ROLE_LABEL[role] ?? role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function parseHardwareCategories(value: string | string[] | undefined | null): string[] {
+export function parseHardwareCategories(value: unknown): string[] {
   if (Array.isArray(value)) return value;
   if (!value) return [];
-  return value.split(",").map((s) => s.trim()).filter(Boolean);
+  const str = String(value);
+  return str.split(",").map((s) => s.trim()).filter(Boolean);
 }

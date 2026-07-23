@@ -175,14 +175,42 @@ async def verify_onboarding_inventory(
 ):
     approved = bool(payload.get("approved", False))
     remarks = str(payload.get("remarks", ""))
+    allocated_assets = payload.get("allocatedAssets", payload.get("selectedAssets", []))
+    pending_assets = payload.get("pendingAssets", payload.get("pendingCategories", []))
 
     updated_user = await asset_service.verify_onboarding(
         user_id=employee_id, approved=approved, remarks=remarks, actor=current_user.name,
+        allocated_assets=allocated_assets if approved else None,
+        pending_assets=pending_assets if approved else None,
     )
     return ApiResponse(
         success=True,
         message="Onboarding verification status updated",
         data=UserResponse.model_validate(updated_user),
+    )
+
+
+@router.post("/onboarding/partial-allocate/{employee_id}")
+async def partial_onboarding_allocate(
+    employee_id: str,
+    payload: Dict[str, Any],
+    db=Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin", "asset_manager"])),
+):
+    assets_to_allocate = payload.get("assets", [])
+    result = await asset_service.allocate_onboarding_partial(
+        user_id=employee_id, assets_to_allocate=assets_to_allocate, actor=current_user.name,
+    )
+    return ApiResponse(
+        success=True,
+        message=f"{result['allocated_count']} assets allocated successfully. {result['pending_count']} assets are pending due to insufficient inventory.",
+        data={
+            "user": UserResponse.model_validate(result["user"]),
+            "newlyAllocated": result["newly_allocated"],
+            "allocatedCount": result["allocated_count"],
+            "pendingCount": result["pending_count"],
+            "isComplete": result["is_complete"],
+        },
     )
 
 

@@ -60,6 +60,8 @@ const MAP: Record<string, string> = {
   "Waiting for Procurement": "bg-warning/15 text-warning border-warning/20",
   "Waiting for Remaining Hardware": "bg-warning/15 text-warning border-warning/20",
   "Verified": "bg-success/15 text-success border-success/20",
+  "Partial Allocation": "bg-orange-500/15 text-orange-600 border-orange-500/20",
+  "Pending Remaining Assets": "bg-amber-500/15 text-amber-600 border-amber-500/20",
   "Rejected": "bg-destructive/15 text-destructive border-destructive/20",
 };
 

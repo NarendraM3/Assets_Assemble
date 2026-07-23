@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, Download, FileSpreadsheet, FileText, X, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { apiUpload } from "@/services/api";
+import { apiFetch, apiUpload } from "@/services/api";
 import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 import * as XLSX from "xlsx";
 
@@ -132,24 +132,63 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
     }, 200);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const endpoint = isExcelFile(file) ? "/asset-manager/bulk" : "/asset-manager/import/pdf";
-      const response = await apiUpload(endpoint, formData);
-
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      const data = (response as any)?.data ?? response;
-
       if (isExcelFile(file)) {
-        const inserted = data?.inserted ?? data?.imported ?? (Array.isArray(data?.assets) ? data.assets.length : 0);
-        const skipped: SkippedRow[] = data?.skipped ?? data?.errors ?? [];
-        const assets: any[] = data?.assets ?? [];
+        const fileData = await file.arrayBuffer();
+        const workbook = XLSX.read(fileData, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const assets = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-        setResult({ inserted, skipped, assets });
+        console.log("Bulk Upload Payload:", assets);
+
+        const response = await apiFetch("/asset-manager/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assets }),
+        });
+
+        clearInterval(progressInterval);
+        setProgress(100);
+
+        console.log("Bulk Upload Response:", response);
+
+        const data = (response as any)?.data ?? response;
+        const insertedCount =
+          data.insertedCount ??
+          data.data?.insertedCount ??
+          data.body?.insertedCount ??
+          0;
+        const failedCount =
+          data.failedCount ??
+          data.data?.failedCount ??
+          data.body?.failedCount ??
+          0;
+        const insertedAssets = data.insertedAssets ?? data.data?.insertedAssets ?? [];
+        const failedRows = data.failedRows ?? data.data?.failedRows ?? [];
+
+        console.log("Imported Count:", insertedCount);
+        console.log("Failed Count:", failedCount);
+        console.log("Inserted Assets:", insertedAssets);
+
+        if (insertedCount === 0) {
+          console.log("COMPLETE RESPONSE OBJECT:", JSON.stringify(response, null, 2));
+        }
+
+        const skipped: SkippedRow[] = (Array.isArray(failedRows) ? failedRows : []).map((r: any) => ({
+          row: r.row ?? 0,
+          reason: r.reason ?? r.error ?? "Unknown error",
+        }));
+
+        setResult({ inserted: insertedCount, skipped, assets: insertedAssets });
       } else {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await apiUpload("/asset-manager/import/pdf", formData);
+
+        clearInterval(progressInterval);
+        setProgress(100);
+
+        const data = (response as any)?.data ?? response;
         setResult({
           inserted: 1,
           skipped: [],
@@ -310,7 +349,7 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
           <>
             <DialogHeader>
               <DialogTitle>
-                {isPdf ? "PDF Uploaded Successfully" : "Imported Successfully"}
+                {isPdf ? "PDF Uploaded Successfully" : `Successfully imported ${result?.inserted ?? 0} assets.`}
               </DialogTitle>
             </DialogHeader>
 
@@ -320,7 +359,7 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
                 <p className="text-lg font-semibold">
                   {isPdf
                     ? "PDF Uploaded Successfully"
-                    : `Imported Successfully`}
+                    : `Successfully imported ${result?.inserted ?? 0} assets.`}
                 </p>
               </div>
 
@@ -328,11 +367,11 @@ export function ImportExcelModal({ open, onOpenChange, onSuccess }: ImportExcelM
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="bg-muted rounded-lg p-4">
                     <p className="text-2xl font-bold text-success">{result?.inserted ?? 0}</p>
-                    <p className="text-sm text-muted-foreground">Inserted Assets</p>
+                    <p className="text-sm text-muted-foreground">Imported</p>
                   </div>
                   <div className="bg-muted rounded-lg p-4">
-                    <p className="text-2xl font-bold text-destructive">{result?.skipped.length ?? 0}</p>
-                    <p className="text-sm text-muted-foreground">Skipped Rows</p>
+                    <p className="text-2xl font-bold text-destructive">{result?.skipped?.length ?? 0}</p>
+                    <p className="text-sm text-muted-foreground">Failed</p>
                   </div>
                 </div>
               )}

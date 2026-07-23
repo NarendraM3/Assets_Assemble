@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 import { useData } from "@/contexts/data";
 
 function daysUntil(d: string) {
-  return Math.floor((new Date(d).getTime() - new Date("2026-07-06").getTime()) / (1000*60*60*24));
+  const dateStr = String(d ?? "");
+  return Math.floor((new Date(dateStr).getTime() - new Date("2026-07-06").getTime()) / (1000*60*60*24));
 }
 
 export default function WarrantyPage() {

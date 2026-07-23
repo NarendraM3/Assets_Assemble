@@ -133,7 +133,7 @@ export const DEPARTMENTS = [
 import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 
 export const CATEGORIES = STANDARD_HARDWARE_CATEGORIES;
-export const MANUFACTURERS = ["Dell", "HP", "Lenovo", "Apple", "Samsung", "Logitech", "Microsoft"];
+export const MANUFACTURERS = ["Dell", "HP", "Lenovo", "Apple", "Acer", "Asus", "MSI", "Samsung"];
 export const LOCATIONS = ["HQ - New York", "Austin Office", "London Office", "Bangalore Office", "Remote", "Singapore Office"];
 export const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Email", "Peripheral", "Security"];
 export const ROLES: { id: Role; name: string; description: string }[] = [

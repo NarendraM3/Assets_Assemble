@@ -48,6 +48,8 @@ class UserResponse(UserBase):
     required_asset_category: Optional[str] = None
     allocated_asset_details: Optional[Dict[str, Any]] = None
     allocation_history: Optional[List[Dict[str, Any]]] = None
+    allocated_assets: Optional[List[Dict[str, Any]]] = None
+    pending_assets: Optional[List[Dict[str, Any]]] = None
     created_at: datetime
     updated_at: datetime
 

@@ -14,11 +14,10 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth";
 import { useData } from "@/contexts/data";
 import { fetchAssignedAssets } from "@/services/data";
-import { uniqueValues } from "@/lib/live-data";
 import type { Asset } from "@/types/domain";
 
 const schema = z.object({
@@ -32,10 +31,11 @@ type FormV = z.infer<typeof schema>;
 export default function RaiseTicket() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const { tickets, createTicket, uploadFiles } = useData();
+  const { createTicket, uploadFiles } = useData();
+  const CATEGORIES = ["Hardware", "Software", "Network", "Email", "Printer", "Access Request", "VPN", "Monitor", "Laptop", "Desktop", "Mobile", "Keyboard", "Mouse", "Other"];
   const [assignedAssets, setAssignedAssets] = useState<Asset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(true);
-  const TICKET_CATEGORIES = useMemo(() => uniqueValues(tickets.map(t => t.category)), [tickets]);
+  const [assetsError, setAssetsError] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -43,13 +43,17 @@ export default function RaiseTicket() {
   useEffect(() => {
     let cancelled = false;
     setAssetsLoading(true);
+    setAssetsError(false);
     fetchAssignedAssets().then(assets => {
       if (!cancelled) {
         setAssignedAssets(assets);
         setAssetsLoading(false);
       }
     }).catch(() => {
-      if (!cancelled) setAssetsLoading(false);
+      if (!cancelled) {
+        setAssetsError(true);
+        setAssetsLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, []);
@@ -188,29 +192,38 @@ export default function RaiseTicket() {
               <Select value={category} onValueChange={v => setValue("category", v)}>
                 <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a category" /></SelectTrigger>
                 <SelectContent>
-                  {TICKET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
               {errors.category && <div className="text-xs text-destructive mt-1">{errors.category.message}</div>}
             </div>
             <div>
-              <Label>Related Asset (optional)</Label>
+              <Label>Related Asset</Label>
               <Select value={watch("assetId") || ""} onValueChange={v => setValue("assetId", v || "")}>
-                <SelectTrigger className="mt-1.5" disabled={assetsLoading}>
-                  <SelectValue placeholder={assetsLoading ? "Loading assets..." : "Attach to an asset"} />
+                <SelectTrigger className="mt-1.5" disabled={assetsLoading || assetsError || assignedAssets.length === 0}>
+                  <SelectValue placeholder={
+                    assetsLoading ? "Loading assets..." :
+                    assetsError ? "Unable to load assigned assets" :
+                    assignedAssets.length === 0 ? "No assets assigned" :
+                    "Select an asset"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {assetsLoading ? (
                     <SelectItem value="__loading__" disabled className="cursor-default">
                       <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading assets...</span>
                     </SelectItem>
+                  ) : assetsError ? (
+                    <SelectItem value="__error__" disabled className="cursor-default text-muted-foreground">
+                      Unable to load assigned assets
+                    </SelectItem>
                   ) : assignedAssets.length === 0 ? (
                     <SelectItem value="__empty__" disabled className="cursor-default text-muted-foreground">
-                      No assigned assets found
+                      No assets assigned
                     </SelectItem>
                   ) : (
                     assignedAssets.map(a => (
-                      <SelectItem key={a.assetId} value={a.assetId}>{a.assetId} - {a.assetName}</SelectItem>
+                      <SelectItem key={a.assetId} value={a.assetId}>{a.assetName} ({a.assetId})</SelectItem>
                     ))
                   )}
                 </SelectContent>

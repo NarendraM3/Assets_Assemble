@@ -46,7 +46,7 @@ interface DataCtx {
   deleteEmployee: (id: string) => Promise<void>;
   assignAssets: (employeeId: string, assetIds: string[]) => Promise<void>;
   addAsset: (asset: Record<string, any>) => Promise<Asset>;
-  addBulkAssets: (assets: Record<string, any>[]) => Promise<Asset[]>;
+  addBulkAssets: (assets: Record<string, any>[]) => Promise<{ assets: Asset[]; insertedCount: number; failedCount: number; insertedAssets: any[]; failedRows: any[] }>;
   retireAsset: (id: string) => Promise<void>;
   setAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
@@ -68,26 +68,34 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function toStr(val: unknown): string {
+  if (val == null) return "";
+  if (typeof val === "string") return val;
+  if (val instanceof Date || typeof val === "number") return String(val);
+  if (typeof val === "object" && val?.toString) return val.toString();
+  return String(val);
+}
+
 function normalizeAsset(item: any): Asset {
   return {
-    assetId: item.AssetId || item.assetId || "",
-    assetName: item.AssetName || item.assetName || item.name || "",
-    assetTag: item.AssetTag || item.assetTag || "",
-    brand: item.Brand || item.brand || item.manufacturer || "",
-    category: item.Category || item.category || "",
-    model: item.Model || item.model || "",
-    serialNumber: item.SerialNumber || item.serialNumber || item.serial || "",
-    status: normalizeAssetStatus(item.Status || item.status),
-    assignedTo: item.AssignedTo || item.assignedTo || null,
-    purchaseDate: item.PurchaseDate || item.purchaseDate || "",
-    warrantyExpiry: item.WarrantyExpiry || item.warrantyExpiry || "",
-    condition: item.Condition || item.condition || "",
-    vendor: item.Vendor || item.vendor || "",
-    createdAt: item.CreatedAt || item.createdAt || "",
-    updatedAt: item.UpdatedAt || item.updatedAt || "",
-    createdBy: item.CreatedBy || item.createdBy || "",
-    assignedAt: item.AssignedAt || item.assignedAt || "",
-    hardwareRequired: item.HardwareRequired || item.hardwareRequired || "",
+    assetId: toStr(item.AssetId || item.assetId),
+    assetName: toStr(item.AssetName || item.assetName || item.name),
+    assetTag: toStr(item.AssetTag || item.assetTag),
+    brand: toStr(item.Brand || item.brand || item.manufacturer),
+    category: toStr(item.Category || item.category),
+    model: toStr(item.Model || item.model),
+    serialNumber: toStr(item.SerialNumber || item.serialNumber || item.serial),
+    status: normalizeAssetStatus(toStr(item.Status || item.status)),
+    assignedTo: toStr(item.AssignedTo || item.assignedTo),
+    purchaseDate: toStr(item.PurchaseDate || item.purchaseDate),
+    warrantyExpiry: toStr(item.WarrantyExpiry || item.warrantyExpiry),
+    condition: toStr(item.Condition || item.condition),
+    vendor: toStr(item.Vendor || item.vendor),
+    createdAt: toStr(item.CreatedAt || item.createdAt),
+    updatedAt: toStr(item.UpdatedAt || item.updatedAt),
+    createdBy: toStr(item.CreatedBy || item.createdBy),
+    assignedAt: toStr(item.AssignedAt || item.assignedAt),
+    hardwareRequired: toStr(item.HardwareRequired || item.hardwareRequired),
   };
 }
 
@@ -340,7 +348,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         department: ticketData.department,
         employeeId: ticketData.employeeId,
         created_by_id: ticketData.created_by_id,
-        asset_id: ticketData.assetId || null,
+        RelatedAssetId: ticketData.assetId || null,
         attachments: Array.isArray(ticketData.attachments) ? ticketData.attachments : [],
       });
       console.log("[DataProvider] createTicket response:", newTicket);
@@ -512,6 +520,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const rawAsset = Array.isArray(result) ? result[0] : result;
       const newAsset = normalizeAsset(rawAsset);
       setAssets((prev) => [...prev, newAsset]);
+      await refreshData();
       return newAsset;
     } catch (err: any) {
       toast.error(err.message || "Failed to create asset");
@@ -519,7 +528,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addBulkAssets = async (assetsData: any[]): Promise<Asset[]> => {
+  const addBulkAssets = async (assetsData: any[]): Promise<{ assets: Asset[]; insertedCount: number; failedCount: number; insertedAssets: any[]; failedRows: any[] }> => {
     try {
       const payload = {
         assets: assetsData.map((a) => ({
@@ -529,7 +538,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           model: a.model,
           serial: a.serial,
           purchase_date: a.purchaseDate,
-          warranty_expiry: a.warrantyExpiry,
+          warranty_expiry: String(a.warrantyExpiry ?? ""),
           status: a.status,
           cost: a.cost,
           assigned_to_id: a.assignedTo || null,
@@ -544,16 +553,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(payload),
       });
 
-      console.log("[addBulkAssets] API Response:", result);
+      console.log("[addBulkAssets] Full API Response:", JSON.stringify(result, null, 2));
 
-      const rawAssets = Array.isArray(result) ? result : (result?.data ?? []);
-      console.log("[addBulkAssets] Parsed new assets:", rawAssets);
+      const responseBody = result?.data ?? result;
+      const insertedCount = responseBody.insertedCount ?? 0;
+      const failedCount = responseBody.failedCount ?? 0;
+      const insertedAssets = responseBody.insertedAssets ?? [];
+      const failedRows = responseBody.failedRows ?? [];
 
-      const newAssets = rawAssets.map(normalizeAsset);
+      console.log("[addBulkAssets] Parsed - insertedCount:", insertedCount, "failedCount:", failedCount);
+      console.log("[addBulkAssets] Inserted Assets:", insertedAssets);
+
+      if (insertedCount === 0) {
+        console.log("[addBulkAssets] COMPLETE RESPONSE:", JSON.stringify(result, null, 2));
+      }
+
+      const newAssets = (Array.isArray(insertedAssets) ? insertedAssets : []).map(normalizeAsset);
       if (newAssets.length > 0) {
         setAssets((prev) => [...prev, ...newAssets]);
       }
-      return newAssets;
+
+      await refreshData();
+      return { assets: newAssets, insertedCount, failedCount, insertedAssets, failedRows };
     } catch (err: any) {
       console.error("[addBulkAssets] Error Response:", err);
       console.error("[addBulkAssets] Error Message:", err.message);
@@ -604,33 +625,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(payload),
       });
 
-      const allocated = selectedAssets.map((a: any) => ({
-        category: a.Category || a.category || "",
-        assetId: a.AssetId || a.assetId,
-        assetName: a.AssetName || a.assetName || "",
-        assetTag: a.AssetTag || a.assetTag || "",
-      }));
-
-      const pending = (pendingCategories || []).map((cat: string) => ({
-        category: cat,
-        status: "Pending Procurement",
-      }));
-
       const hasPending = (pendingCategories?.length ?? 0) > 0;
-
-      setEmployees((prev) =>
-        prev.map((e) =>
-          e.id === employeeId
-            ? {
-                ...e,
-                verificationStatus: "Verified",
-                allocationStatus: hasPending ? ("Awaiting Asset Verification" as const) : ("Sent to IT Support Team" as const),
-                allocatedAssets: allocated,
-                pendingAssets: pending,
-              }
-            : e
-        )
-      );
 
       toast.success(
         hasPending
@@ -665,18 +660,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify(payload),
       });
-
-      setEmployees((prev) =>
-        prev.map((e) =>
-          e.id === employeeId
-            ? {
-                ...e,
-                verificationStatus: "Out of Stock",
-                allocationStatus: "Out of Stock" as const,
-              }
-            : e
-        )
-      );
 
       toast.success(response?.message || "Onboarding flagged as out of stock");
       await refreshData();

@@ -14,8 +14,9 @@ interface FlatAssignmentRecord extends AssetAssignmentRecord {
   AssignmentStatus: string;
 }
 
-function dash(value: string | undefined | null): string {
-  return value && value.trim() ? value : "-";
+function dash(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return s.trim() ? s : "-";
 }
 
 export default function AssignmentsPage() {
@@ -56,15 +57,16 @@ export default function AssignmentsPage() {
       const base = { ...group[0] };
       const pairs = new Map<string, string>();
       for (const r of group) {
-        if (r.AssetId && r.AssetId.trim()) {
-          if (!pairs.has(r.AssetId)) {
-            pairs.set(r.AssetId, r.AssetName || "");
+        const assetId = r.AssetId == null ? "" : String(r.AssetId);
+        if (assetId.trim()) {
+          if (!pairs.has(assetId.trim())) {
+            pairs.set(assetId.trim(), r.AssetName ? String(r.AssetName) : "");
           }
         }
       }
       if (pairs.size > 0) {
         base.AssetId = Array.from(pairs.keys()).join("\n");
-        base.AssetName = Array.from(pairs.entries()).map(([_, name]) => name && name.trim() ? name : "-").join("\n");
+        base.AssetName = Array.from(pairs.entries()).map(([_, name]) => { const n = name == null ? "" : String(name); return n.trim() ? n.trim() : "-"; }).join("\n");
       }
       result.push(base);
     }
@@ -116,8 +118,9 @@ export default function AssignmentsPage() {
       accessorKey: "AssignmentStatus",
       header: "Assignment Status",
       cell: ({ getValue }) => {
-        const val = getValue<string>();
-        if (!val || !val.trim()) return <span className="text-xs text-muted-foreground">-</span>;
+        const raw = getValue();
+        const val = raw == null ? "" : String(raw);
+        if (!val.trim()) return <span className="text-xs text-muted-foreground">-</span>;
         return <StatusBadge status={val} />;
       },
     },

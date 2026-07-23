@@ -16,23 +16,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Asset } from "@/types/domain";
-import { uniqueValues } from "@/lib/live-data";
 import { useData } from "@/contexts/data";
 import { ImportExcelModal } from "@/components/import/ImportExcelModal";
-import { BulkAddModal } from "@/components/assets/BulkAddModal";
 import { toast } from "sonner";
-import { MANUFACTURERS as FALLBACK_MANUFACTURERS } from "@/data/mock";
 import { STANDARD_HARDWARE_CATEGORIES } from "@/lib/asset-categories";
 
 export default function AssetsPage() {
-  const { assets, employees, loading: contextLoading, addAsset, retireAsset, setAssets, refreshData } = useData();
-  const DERIVED_MANUFACTURERS = uniqueValues(assets.map(a => a.brand));
+  const { assets, employees, loading: contextLoading, addAsset, retireAsset, refreshData } = useData();
   const CATEGORIES = STANDARD_HARDWARE_CATEGORIES;
-  const MANUFACTURERS = DERIVED_MANUFACTURERS.length > 0 ? DERIVED_MANUFACTURERS : FALLBACK_MANUFACTURERS;
+  const MANUFACTURERS = ["Dell", "HP", "Lenovo", "Apple", "Acer", "Asus", "MSI", "Samsung"];
   const [selected, setSelected] = useState<Asset | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [saving, setSaving] = useState(false);
@@ -95,7 +90,8 @@ export default function AssetsPage() {
         warrantyExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().slice(0, 10),
         cost: Math.floor(Math.random() * 2500) + 500,
       });
-      toast.success("Asset Created Successfully");
+      toast.success("Asset added successfully");
+      setCreateOpen(false);
       setName("");
       setAssetCategory("");
       setCustomCategory("");
@@ -112,13 +108,6 @@ export default function AssetsPage() {
   };
 
   const handleImportSuccess = (importedAssets: any[]) => {
-    if (importedAssets.length > 0) {
-      setAssets((prev) => {
-        const existingIds = new Set(prev.map((a) => a.assetId));
-        const newOnes = importedAssets.filter((a: any) => !existingIds.has(a.assetId));
-        return [...prev, ...newOnes];
-      });
-    }
     refreshData();
   };
 
@@ -194,10 +183,7 @@ export default function AssetsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={handleOpenCreate}>
-                  <Plus className="h-4 w-4 mr-2" />Single Asset
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBulkOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />Multiple Assets
+                  <Plus className="h-4 w-4 mr-2" />Add Asset
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setImportOpen(true)}>
                   <UploadIcon className="h-4 w-4 mr-2" />Import Excel
@@ -284,7 +270,7 @@ export default function AssetsPage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) { setCustomCategory(""); refreshData(); } }}>
+      <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) { setCustomCategory(""); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Asset</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -332,12 +318,6 @@ export default function AssetsPage() {
         onSuccess={handleImportSuccess}
       />
 
-      <BulkAddModal
-        open={bulkOpen}
-        onOpenChange={setBulkOpen}
-        categories={CATEGORIES}
-        manufacturers={MANUFACTURERS}
-      />
     </>
   );
 }

@@ -19,7 +19,8 @@ const TABLES = {
   TICKETS: 'Assets_Tickets',
   ATTACHMENTS: 'Assets_Attachments',
   COMMENTS: 'Assets_TicketComments',
-  ASSETS: 'Assets_Asset'
+  ASSETS: 'Assets_Asset',
+  ASSET_ASSIGNMENTS: 'Asset_Assignments'
 };
 
 const BUCKET = 'assets-attachment';
@@ -68,16 +69,13 @@ async function getEmployeeId(event) {
 
   const authorizer = event.requestContext?.authorizer;
   let employeeId = null;
-  let source = "none";
 
   if (authorizer?.jwt?.claims) {
     const claims = authorizer.jwt.claims;
     employeeId = claims.sub || claims['cognito:username'] || claims.email || claims.employeeId || claims.EmployeeId;
-    source = "JWT Authorizer";
   } else if (authorizer?.claims) {
     const claims = authorizer.claims;
     employeeId = claims.sub || claims['cognito:username'] || claims.email || claims.employeeId || claims.EmployeeId;
-    source = "Authorizer claims";
   }
 
   const authHeader = event.headers?.Authorization || event.headers?.authorization;
@@ -138,7 +136,115 @@ function parseMultipartFormData(body, boundary) {
   return result;
 }
 
-// ==================== BUSINESS FUNCTIONS (UNCHANGED) ====================
+// ==================== FIXED: GET EMPLOYEE ASSIGNED ASSETS ====================
+async function getEmployeeAssignedAssets(event) {
+  try {
+    console.log('=== GET EMPLOYEE ASSIGNED ASSETS START ===');
+    const employeeId = await getEmployeeId(event);
+    if (!employeeId) {
+      return createErrorResponse('Authentication required', 401);
+    }
+
+    console.log("EmployeeId:", employeeId);
+
+    // 1. Check direct assignment in employee record (keep existing logic)
+    const empResult = await docClient.send(new GetCommand({
+      TableName: TABLES.EMPLOYEES,
+      Key: { EmployeeId: employeeId }
+    }));
+
+    let assignedAssetIds = new Set();
+
+    if (empResult.Item) {
+      const employee = empResult.Item;
+      if (employee.AssignedAssetId) assignedAssetIds.add(employee.AssignedAssetId);
+      if (employee.AssignedAssetIds && Array.isArray(employee.AssignedAssetIds)) {
+        employee.AssignedAssetIds.forEach(id => assignedAssetIds.add(id));
+      }
+      if (employee.assignedAssetIds && Array.isArray(employee.assignedAssetIds)) {
+        employee.assignedAssetIds.forEach(id => assignedAssetIds.add(id));
+      }
+    }
+
+    // 2. Scan Asset_Assignments table (as requested)
+    try {
+      const assignmentsResult = await docClient.send(
+        new ScanCommand({
+          TableName: TABLES.ASSET_ASSIGNMENTS,
+          FilterExpression: "EmployeeId = :empId",
+          ExpressionAttributeValues: {
+            ":empId": employeeId
+          }
+        })
+      );
+
+      console.log("Assignments:", JSON.stringify(assignmentsResult.Items, null, 2));
+
+      if (assignmentsResult.Items && assignmentsResult.Items.length > 0) {
+        assignmentsResult.Items.forEach(assignment => {
+          if (
+            assignment.Status === "Assigned" ||
+            assignment.AssignmentStatus === "Assigned"
+          ) {
+            if (assignment.AssetId) {
+              assignedAssetIds.add(assignment.AssetId);
+            }
+          }
+        });
+      }
+    } catch (scanErr) {
+      console.error("Error scanning Asset_Assignments:", scanErr.message);
+    }
+
+    console.log("Assigned Asset IDs:", Array.from(assignedAssetIds));
+
+    if (assignedAssetIds.size === 0) {
+      console.log("No assigned assets found for employee");
+      return createSuccessResponse({ assets: [] });
+    }
+
+    // 3. Fetch full asset details
+    const assets = [];
+    for (const assetId of assignedAssetIds) {
+      try {
+        console.log("Fetching Asset:", assetId);
+
+        const assetResult = await docClient.send(new GetCommand({
+          TableName: TABLES.ASSETS,
+          Key: { AssetId: assetId }
+        }));
+
+        console.log("Asset Result:", JSON.stringify(assetResult.Item, null, 2));
+
+        if (assetResult.Item) {
+          const a = assetResult.Item;
+          assets.push({
+            assetId: a.AssetId,
+            assetName: a.AssetName,
+            category: a.Category,
+            brand: a.Brand,
+            model: a.Model,
+            serialNumber: a.SerialNumber,
+            status: a.Status
+          });
+        } else {
+          console.warn(`Warning: Asset record not found for AssetId: ${assetId}`);
+        }
+      } catch (assetErr) {
+        console.error(`Error fetching asset ${assetId}:`, assetErr.message);
+      }
+    }
+
+    console.log(`Returning ${assets.length} assigned assets`);
+    return createSuccessResponse({ assets });
+
+  } catch (error) {
+    console.error('Get employee assigned assets error:', error);
+    return createErrorResponse('Failed to fetch assigned assets', 500);
+  }
+}
+
+// ==================== UNCHANGED BUSINESS FUNCTIONS ====================
 async function createTicket(event) { 
   try {
     console.log('=== CREATE TICKET START ===');
@@ -228,9 +334,6 @@ async function getITTickets(event) {
     const result = await docClient.send(new ScanCommand({ TableName: TABLES.TICKETS }));
     let tickets = result.Items || [];
 
-    // Added as requested
-    console.log("DynamoDB Scan Result:", JSON.stringify(tickets, null, 2));
-
     tickets = await Promise.all(tickets.map(async (t) => {
       const atts = await docClient.send(new QueryCommand({
         TableName: TABLES.ATTACHMENTS,
@@ -242,14 +345,6 @@ async function getITTickets(event) {
     }));
 
     tickets.sort((a, b) => new Date(b.CreatedAt) - new Date(a.CreatedAt));
-
-    console.log(
-      "Raw Tickets:",
-      tickets.map(t => ({
-        TicketId: t.TicketId,
-        EstimatedResolutionTime: t.EstimatedResolutionTime
-      }))
-    );
 
     const formattedTickets = tickets.map(t => ({
       ticketId: t.TicketId,
@@ -263,24 +358,12 @@ async function getITTickets(event) {
       updatedAt: t.UpdatedAt,
       description: t.Description,
       employeeName: t.EmployeeName,
-
-      // Return ETA using all possible field names for frontend compatibility
       EstimatedResolutionTime: t.EstimatedResolutionTime || "",
       estimatedResolutionTime: t.EstimatedResolutionTime || "",
       estimatedTime: t.EstimatedResolutionTime || "",
-
       attachments: t.attachments || []
     }));
 
-    console.log(
-      "Formatted Tickets:",
-      formattedTickets.map(t => ({
-        ticketId: t.ticketId,
-        EstimatedResolutionTime: t.EstimatedResolutionTime
-      }))
-    );
-
-    console.log(`IT Support returning ${formattedTickets.length} tickets`);
     return createSuccessResponse({ tickets: formattedTickets });
   } catch (error) {
     console.error('Get IT Tickets Error:', error);
@@ -294,14 +377,13 @@ async function uploadAttachment(event) {
   if (!employeeId) return createErrorResponse('Authentication required', 401);
 
   try {
-    // Full upload logic placeholder - keep as working version
     return createSuccessResponse({ message: "Attachment uploaded" });
   } catch (e) {
     return createErrorResponse('Upload failed', 500);
   }
 }
 
-// ==================== FIXED ROUTING HANDLER ====================
+// ==================== HANDLER ====================
 export const handler = async (event) => {
   console.log('=== REQUEST RECEIVED ===');
   console.log('event.path:', event.path);
@@ -318,7 +400,6 @@ export const handler = async (event) => {
 
   console.log("Resolved Path:", normalizedPath);
   console.log("Resolved Method:", method);
-  console.log('=== ROUTING DECISION ===');
 
   if (method === 'OPTIONS') {
     return { statusCode: 200, headers: CORS_HEADERS, body: '' };
@@ -335,6 +416,9 @@ export const handler = async (event) => {
   }
   if (method === 'POST' && normalizedPath === '/upload-attachment') {
     return await uploadAttachment(event);
+  }
+  if (method === 'GET' && normalizedPath === '/employee/assigned-assets') {
+    return await getEmployeeAssignedAssets(event);
   }
   if (method === 'GET' && normalizedPath === '/profile') {
     // return await getProfile(event);

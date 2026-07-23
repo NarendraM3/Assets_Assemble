@@ -1,6 +1,6 @@
 export function uniqueValues(values: Array<string | null | undefined>) {
   return Array.from(
-    new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]),
+    new Set(values.map((value) => (value == null ? "" : String(value)).trim()).filter(Boolean) as string[]),
   ).sort((a, b) => a.localeCompare(b));
 }
 
@@ -17,7 +17,8 @@ export function countBy<T>(
 ) {
   const counts = new Map<string, number>();
   for (const item of items) {
-    const key = getKey(item)?.trim();
+    const raw = getKey(item);
+    const key = raw == null ? "" : String(raw).trim();
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }

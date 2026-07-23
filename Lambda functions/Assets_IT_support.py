@@ -146,6 +146,49 @@ async function calculatePendingAssets(requiredCategories, allocatedAssets) {
   };
 }
 
+// Helper to build employee status update parameters based on pending count
+function buildEmployeeStatusUpdate(pendingCount, pendingAssetsList, now) {
+  const isFullyCompleted = pendingCount === 0;
+  
+  const baseUpdate = {
+    UpdateExpression: "SET #updatedAt = :updatedAt",
+    ExpressionAttributeNames: { "#updatedAt": "UpdatedAt" },
+    ExpressionAttributeValues: { ":updatedAt": now }
+  };
+
+  if (isFullyCompleted) {
+    baseUpdate.UpdateExpression += ", #currentWorkflowState = :completedState, #onboardingStatus = :completed, #verificationStatus = :verifiedCompleted, #workflow = :w, #itStatus = :its";
+    baseUpdate.ExpressionAttributeNames["#currentWorkflowState"] = "CurrentWorkflowState";
+    baseUpdate.ExpressionAttributeNames["#onboardingStatus"] = "OnboardingStatus";
+    baseUpdate.ExpressionAttributeNames["#verificationStatus"] = "VerificationStatus";
+    baseUpdate.ExpressionAttributeNames["#workflow"] = "Workflow";
+    baseUpdate.ExpressionAttributeNames["#itStatus"] = "ITStatus";
+    
+    baseUpdate.ExpressionAttributeValues[":completedState"] = "COMPLETED";
+    baseUpdate.ExpressionAttributeValues[":completed"] = "Completed";
+    baseUpdate.ExpressionAttributeValues[":verifiedCompleted"] = "Completed";
+    baseUpdate.ExpressionAttributeValues[":w"] = "Completed";
+    baseUpdate.ExpressionAttributeValues[":its"] = "Completed";
+  } else {
+    baseUpdate.UpdateExpression += ", #currentWorkflowState = :partialState, #onboardingStatus = :pendingStatus, #workflow = :w, #itStatus = :its, #pendingAssets = :pendingAssetsList, #pendingAssetsCount = :pendingCount";
+    baseUpdate.ExpressionAttributeNames["#currentWorkflowState"] = "CurrentWorkflowState";
+    baseUpdate.ExpressionAttributeNames["#onboardingStatus"] = "OnboardingStatus";
+    baseUpdate.ExpressionAttributeNames["#workflow"] = "Workflow";
+    baseUpdate.ExpressionAttributeNames["#itStatus"] = "ITStatus";
+    baseUpdate.ExpressionAttributeNames["#pendingAssets"] = "PendingAssets";
+    baseUpdate.ExpressionAttributeNames["#pendingAssetsCount"] = "PendingAssetsCount";
+    
+    baseUpdate.ExpressionAttributeValues[":partialState"] = "PARTIALLY_ASSIGNED";
+    baseUpdate.ExpressionAttributeValues[":pendingStatus"] = "Pending Assets";
+    baseUpdate.ExpressionAttributeValues[":w"] = "Partial";
+    baseUpdate.ExpressionAttributeValues[":its"] = "Partial";
+    baseUpdate.ExpressionAttributeValues[":pendingAssetsList"] = pendingAssetsList;
+    baseUpdate.ExpressionAttributeValues[":pendingCount"] = pendingCount;
+  }
+
+  return baseUpdate;
+}
+
 // ====================== ASSET MANAGER HANDLERS ======================
 const getAssetsHandler = async () => {
   try {
@@ -173,7 +216,7 @@ const getPendingOnboardingHandler = async () => {
     console.log("IT Support request: Fetching pending onboarding");
     const cmd = new ScanCommand({
       TableName: EMPLOYEES_TABLE,
-      ProjectionExpression: "EmployeeId, EmployeeName, FirstName, LastName, JoiningDate, Department, Designation, RequiredHardwareCategory, VerificationStatus, AssignedAssetId, AllocatedAssets, Workflow, ITStatus, OnboardingStatus, CurrentWorkflowState, UpdatedAt, ApprovedBy, ApprovalDate"
+      ProjectionExpression: "EmployeeId, EmployeeName, FirstName, LastName, JoiningDate, Department, Designation, RequiredHardwareCategory, VerificationStatus, AssignedAssetId, AllocatedAssets, AssignedAssets, PendingAssets, Workflow, ITStatus, OnboardingStatus, CurrentWorkflowState, UpdatedAt, ApprovedBy, ApprovalDate"
     });
     const result = await client.send(cmd);
     let employees = result.Items ? result.Items.map(item => unmarshall(item)) : [];
@@ -184,7 +227,8 @@ const getPendingOnboardingHandler = async () => {
         employeeName = `${emp.FirstName || ''} ${emp.LastName || ''}`.trim();
       }
 
-      let allocatedAssets = emp.AllocatedAssets || [];
+      // 1. Use AssignedAssets (new) with fallback to AllocatedAssets (old) for backward compatibility
+      let allocatedAssets = emp.AssignedAssets || emp.AllocatedAssets || [];
       if (!allocatedAssets.length && emp.AssignedAssetId) {
         allocatedAssets = [{
           AssetId: emp.AssignedAssetId,
@@ -193,13 +237,23 @@ const getPendingOnboardingHandler = async () => {
         }];
       }
 
-      // Enrich AllocatedAssets with full details from Assets_Asset
+      // Enrich Assigned/AllocatedAssets with full details from Assets_Asset
       const enrichedAllocated = await enrichAllocatedAssets(allocatedAssets);
 
-      const { pendingAssets, pendingCount } = await calculatePendingAssets(
-        emp.RequiredHardwareCategory || [],
-        allocatedAssets // pass original for enrichment inside calculate
-      );
+      // 2. Respect PendingAssets stored by Asset Manager. Only calculate if not present (backward compat)
+      let pendingAssets = [];
+      let pendingCount = 0;
+      if (emp.PendingAssets && Array.isArray(emp.PendingAssets)) {
+        pendingAssets = emp.PendingAssets;
+        pendingCount = pendingAssets.length;
+      } else {
+        const calcResult = await calculatePendingAssets(
+          emp.RequiredHardwareCategory || [],
+          allocatedAssets
+        );
+        pendingAssets = calcResult.pendingAssets;
+        pendingCount = calcResult.pendingCount;
+      }
 
       return {
         EmployeeId: emp.EmployeeId,
@@ -212,9 +266,9 @@ const getPendingOnboardingHandler = async () => {
         RequiredHardwareCategory: emp.RequiredHardwareCategory || [],
         VerificationStatus: emp.VerificationStatus || "",
         AssignedAssetId: emp.AssignedAssetId || "", // legacy
-        AllocatedAssets: enrichedAllocated, // always enriched
+        AllocatedAssets: enrichedAllocated, // response field expected by frontend (enriched)
         AllocatedAssetsCount: enrichedAllocated.length,
-        PendingAssets: pendingAssets,
+        PendingAssets: pendingAssets,        // exactly as stored by Asset Manager
         PendingAssetsCount: pendingCount,
         Workflow: emp.Workflow || "",
         ITStatus: emp.ITStatus || "",
@@ -296,7 +350,8 @@ const deliverOnboardingHandler = async (event) => {
     const employee = await getEmployee(employeeId);
     if (!employee) return { statusCode: 404, body: JSON.stringify({ success: false, message: "Employee not found" }) };
 
-    const allocatedAssets = employee.AllocatedAssets || [];
+    // Use new AssignedAssets with fallback
+    const allocatedAssets = employee.AssignedAssets || employee.AllocatedAssets || [];
     if (allocatedAssets.length === 0 && !employee.AssignedAssetId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "No assets allocated to this employee" }) };
     }
@@ -347,7 +402,7 @@ const deliverOnboardingHandler = async (event) => {
             AssignedDate: now.split("T")[0],
             Status: "Assigned",
             AssignmentStatus: "Assigned",
-            AssignedRole: AssignedRole, // Store AssignedRole
+            AssignedRole: AssignedRole,
             Workflow: "Completed",
             ITComment,
             CreatedAt: now,
@@ -374,39 +429,45 @@ const deliverOnboardingHandler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "No valid assets to deliver" }) };
     }
 
-    // Update Employee
+    // 2. Respect PendingAssets if present, else calculate (preserves Asset Manager data)
+    let pendingAssets = [];
+    let pendingCount = 0;
+    if (employee.PendingAssets && Array.isArray(employee.PendingAssets)) {
+      pendingAssets = employee.PendingAssets;
+      pendingCount = pendingAssets.length;
+    } else {
+      const calcResult = await calculatePendingAssets(
+        employee.RequiredHardwareCategory || [],
+        allocatedAssets
+      );
+      pendingAssets = calcResult.pendingAssets;
+      pendingCount = calcResult.pendingCount;
+    }
+
+    console.log(`Employee ${employeeId} - Pending assets after delivery: ${pendingCount}`);
+
+    // Build conditional employee status update
+    const statusUpdate = buildEmployeeStatusUpdate(pendingCount, pendingAssets, now);
+
     transactItems.push({
       Update: {
         TableName: EMPLOYEES_TABLE,
         Key: marshall({ EmployeeId: employeeId }),
-        UpdateExpression: "SET #currentWorkflowState = :completedState, #onboardingStatus = :completed, #verificationStatus = :verifiedCompleted, #updatedAt = :updatedAt, #workflow = :w, #itStatus = :its",
-        ExpressionAttributeNames: {
-          "#currentWorkflowState": "CurrentWorkflowState",
-          "#onboardingStatus": "OnboardingStatus",
-          "#verificationStatus": "VerificationStatus",
-          "#updatedAt": "UpdatedAt",
-          "#workflow": "Workflow",
-          "#itStatus": "ITStatus"
-        },
-        ExpressionAttributeValues: marshall({
-          ":completedState": "COMPLETED",
-          ":completed": "Completed",
-          ":verifiedCompleted": "Completed",
-          ":updatedAt": now,
-          ":w": "Completed",
-          ":its": "Completed"
-        }),
+        UpdateExpression: statusUpdate.UpdateExpression,
+        ExpressionAttributeNames: statusUpdate.ExpressionAttributeNames,
+        ExpressionAttributeValues: marshall(statusUpdate.ExpressionAttributeValues),
         ConditionExpression: "attribute_exists(EmployeeId)"
       }
     });
 
     await client.send(new TransactWriteItemsCommand({ TransactItems: transactItems }));
-    console.log(`✅ Delivered ${assetsToProcess.length} asset(s) for employee ${employeeId}`);
+    console.log(`✅ Delivered ${assetsToProcess.length} asset(s) for employee ${employeeId}. Final state: ${pendingCount === 0 ? 'COMPLETED' : 'PARTIALLY_ASSIGNED'}`);
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: "Onboarding delivered and assignments created successfully"
+        message: `Onboarding delivered successfully. ${pendingCount} pending asset(s) remaining.`,
+        pendingCount
       })
     };
   } catch (error) {
@@ -425,7 +486,7 @@ const approveHandler = async (event) => {
     const EmployeeId = body.EmployeeId || body.employeeId;
     const AssignedAssetId = body.AssignedAssetId || body.assetId;
     const AssignedBy = body.AssignedBy || body.approvedBy;
-    const AssignedRole = body.AssignedRole || "IT Support Team"; // Support new field
+    const AssignedRole = body.AssignedRole || "IT Support Team";
     const ITComment = body.Comment || body.comment || body.ITComment || "";
 
     if (!EmployeeId || !AssignedAssetId || !AssignedBy) {
@@ -452,28 +513,49 @@ const approveHandler = async (event) => {
       AllocatedBy: AssignedBy
     };
 
-    const currentAllocated = employee.AllocatedAssets || [];
+    // Use new field with fallback
+    const currentAllocated = employee.AssignedAssets || employee.AllocatedAssets || [];
     const updatedAllocated = [...currentAllocated, newAlloc];
+
+    // 2. Respect existing PendingAssets if present, else recalculate
+    let pendingAssets = [];
+    let pendingCount = 0;
+    if (employee.PendingAssets && Array.isArray(employee.PendingAssets)) {
+      pendingAssets = employee.PendingAssets; // Do not override Asset Manager's stored pending
+      pendingCount = pendingAssets.length;
+    } else {
+      const calcResult = await calculatePendingAssets(
+        employee.RequiredHardwareCategory || [],
+        updatedAllocated
+      );
+      pendingAssets = calcResult.pendingAssets;
+      pendingCount = calcResult.pendingCount;
+    }
+
+    const statusUpdate = buildEmployeeStatusUpdate(pendingCount, pendingAssets, now);
 
     const transactItems = [
       {
         Update: {
           TableName: EMPLOYEES_TABLE,
           Key: marshall({ EmployeeId }),
-          UpdateExpression: "SET #allocatedAssets = :allocs, #assignedAssetId = :assetId, #approvedBy = :appr, #approvalDate = :appDate, #updatedAt = :uat",
+          UpdateExpression: `SET #allocatedAssets = :allocs, #assignedAssets = :assignedAssets, #assignedAssetId = :assetId, #approvedBy = :appr, #approvalDate = :appDate, #updatedAt = :uat ${statusUpdate.UpdateExpression.replace("SET ", ", ")}`,
           ExpressionAttributeNames: {
-            "#allocatedAssets": "AllocatedAssets",
+            "#allocatedAssets": "AllocatedAssets",   // keep for backward compat
+            "#assignedAssets": "AssignedAssets",     // new field
             "#assignedAssetId": "AssignedAssetId",
             "#approvedBy": "ApprovedBy",
             "#approvalDate": "ApprovalDate",
-            "#updatedAt": "UpdatedAt"
+            ...statusUpdate.ExpressionAttributeNames
           },
           ExpressionAttributeValues: marshall({
             ":allocs": updatedAllocated,
+            ":assignedAssets": updatedAllocated,     // sync both for compat
             ":assetId": AssignedAssetId,
             ":appr": AssignedBy,
             ":appDate": now,
-            ":uat": now
+            ":uat": now,
+            ...statusUpdate.ExpressionAttributeValues
           }),
           ConditionExpression: "attribute_exists(EmployeeId)"
         }
@@ -491,15 +573,22 @@ const approveHandler = async (event) => {
     ];
 
     await client.send(new TransactWriteItemsCommand({ TransactItems: transactItems }));
-    console.log(`✅ Asset ${AssignedAssetId} allocated for Employee ${EmployeeId}. Total: ${updatedAllocated.length}`);
-    return { statusCode: 200, body: JSON.stringify({ success: true, message: "Asset allocated successfully" }) };
+    console.log(`✅ Asset ${AssignedAssetId} allocated for Employee ${EmployeeId}. Total allocated: ${updatedAllocated.length}, Pending: ${pendingCount}`);
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        success: true, 
+        message: "Asset allocated successfully",
+        pendingCount 
+      }) 
+    };
   } catch (error) {
     console.error("Approve & Allot Error:", error);
     return { statusCode: 500, body: JSON.stringify({ success: false, message: error.message || "Internal server error" }) };
   }
 };
 
-// Other handlers remain unchanged
+// Other handlers remain unchanged (Prepare, Ready, Reject)
 const prepareOnboardingHandler = async (event) => {
   try {
     console.log("IT Support request: Prepare onboarding");

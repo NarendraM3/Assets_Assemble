@@ -76,6 +76,7 @@ export async function apiFetch<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...fetchOptions,
+    cache: fetchOptions.cache ?? "no-store",
     headers,
   });
 
