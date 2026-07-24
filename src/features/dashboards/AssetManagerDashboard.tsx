@@ -221,10 +221,6 @@ export function AssetManagerDashboard() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => {
-      loadData();
-    }, 30000);
-    return () => clearInterval(interval);
   }, [loadData]);
 
   const stats = useMemo(() => {

@@ -64,11 +64,6 @@ export function AdminDashboard() {
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => { refreshData(); }, 30000);
-    return () => clearInterval(interval);
-  }, [refreshData]);
-
-  useEffect(() => {
     if (!selectedEmp) {
       setFullProfile(null);
       return;

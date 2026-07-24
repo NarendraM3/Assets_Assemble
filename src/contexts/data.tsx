@@ -331,10 +331,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(() => {
-      refreshData();
-    }, 30000);
-    return () => clearInterval(interval);
   }, [refreshData]);
 
   const createTicketFn = async (ticketData: any, actor: string) => {

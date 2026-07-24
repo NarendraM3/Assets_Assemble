@@ -18,7 +18,7 @@ import { isAssignedToEmployee } from "@/lib/assets";
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
-  const { assets, tickets, notifications, fetchFullProfile, refreshData } = useData();
+  const { assets, tickets, notifications, fetchFullProfile } = useData();
 
   const [fullProfile, setFullProfile] = useState<any | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -35,13 +35,6 @@ export function EmployeeDashboard() {
     });
     return () => { active = false; };
   }, [user]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshData();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [refreshData]);
 
   const myAssets = useMemo(() => {
     if (!user) return [];
